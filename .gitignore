@@ -6,3 +6,6 @@ __pycache__/
 
 # Exclude the cache database
 *.db
+
+# Exclude session cookies
+*.cookies
