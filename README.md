@@ -3,6 +3,13 @@
 This repository is a collection of scripts for working with the NGA Database. Use of the scripts with the NGA site requires an admin account with the NGA.
 
 
+## Dependencies
+
+- Python 3 with the following modules
+  - Beautiful Soup 4
+  - Levenshtein
+  - requests
+
 ## Acknowledgements
 
 These scripts rely on a number of online resources. The work by those who maintain the following projects is greatly appreciated:
