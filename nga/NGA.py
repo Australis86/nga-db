@@ -63,16 +63,24 @@ class NGA:
 		if os.path.exists(cookiepath):
 			# Open the JSON file
 			fd = open(cookiepath, 'r')
+
+			# Try to read the JSON string and set the cookie parameters
 			try:
-				# Try to read the JSON string and set the cookie parameters
 				c = json.load(fd)
 				self.__NGAcookie.set('cuuser', c['cuuser'], domain='garden.org', path='/')
 				self.__NGAcookie.set('cupass', c['cupass'], domain='garden.org', path='/')
-			except TypeError as e:
-				print("Error loading cookie archive %s." % cookiepath)
+
+			except Exception, err:
+				# We must have a valid cookie file, or the NGA site will block us`
+				print("Error loading cookie archive %s. A valid cookie file is required to use this script." % cookiepath)
+				
+				# Re-raise the exception
+				raise err
+				
 			fd.close()
 		else:
-			print("Cookie archive %s not found." % cookiepath)
+			# We must have a valid cookie file, or the NGA site will block us`
+			raise FileNotFoundError("Cookie archive %s not found. A valid cookie file is required to use this script." % cookiepath)
 	
 	
 	def generateSessionCookie(self, cookiepath):
