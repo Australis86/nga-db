@@ -671,7 +671,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 		"NH = Not listed as natural hybrid in the COL", os.linesep, 
 		"PH = Listed as a possible hybrid in the COL", os.linesep,
 		"CN = Has the genus as the common name", os.linesep,
-		"MN = Missing a common name", os.linesep)
+		"MC = Missing a common name", os.linesep)
 	
 	for botanical_name in entries:
 		botanical_entry = nga_dataset[botanical_name]
