@@ -4,7 +4,7 @@
 
 You can set the global variable NGA_COOKIE to specify the file used when
 creating an instance of the class, or you can reload the cookie archive later
-using .generateSessionCookie(path-to-cookie)
+using .regenerateSessionCookie(path-to-cookie)
 
 This script is designed for Python 3 and Beautiful Soup 4 with the lxml parser."""
 
@@ -20,12 +20,22 @@ import json
 import re
 import requests
 import time
+import getpass
 from collections import OrderedDict
 from urllib.parse import urljoin, urlparse, parse_qs
 from bs4 import BeautifulSoup
 from sys import stdout
 
 class NGA:
+	
+	def __createSession(self):
+		"""Create a requests session."""
+		
+		self._session = requests.Session()
+		
+		# Requests user agent has been blocked by Garden.org, unfortunately
+		self._session.headers.update({'User-Agent':'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0'})
+		
 	
 	def __init__(self):
 		"""Create an instance and set up a requests session to the NGA website."""
@@ -47,15 +57,14 @@ class NGA:
 		# This will look for a JSON file containing authentication info for the website
 		# If it exists, it will load it and use it for the session
 		self.__loadCookieArchive(self._cookiepath)
-		self._session = requests.Session()
-		self._session.cookies = self.__NGAcookie
 		
-		# Requests user agent has been blocked by Garden.org, unfortunately
-		self._session.headers.update({'User-Agent':'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0'})
+		self.__createSession()
+		self._session.cookies = self.__NGAcookie
 		self._session.get(self._home_url)
 		
 		# Delay to wait before hitting NGA servers again if the connection failed
 		self._recursion_delay = 1
+	
 	
 	def __loadCookieArchive(self, cookiepath):
 		"""Load a JSON file containing cookies for the NGA website."""
@@ -70,7 +79,7 @@ class NGA:
 				self.__NGAcookie.set('cuuser', c['cuuser'], domain='garden.org', path='/')
 				self.__NGAcookie.set('cupass', c['cupass'], domain='garden.org', path='/')
 
-			except Exception, err:
+			except Exception as err:
 				# We must have a valid cookie file, or the NGA site will block us`
 				print("Error loading cookie archive %s. A valid cookie file is required to use this script." % cookiepath)
 				
@@ -80,10 +89,85 @@ class NGA:
 			fd.close()
 		else:
 			# We must have a valid cookie file, or the NGA site will block us`
-			raise FileNotFoundError("Cookie archive %s not found. A valid cookie file is required to use this script." % cookiepath)
+			print("Cookie archive %s not found. A valid cookie file is required to use this script." % cookiepath)
+			self.__startAuthSession()
 	
 	
-	def generateSessionCookie(self, cookiepath):
+	def __storeCookieArchive(self, cookiejson):
+		"""Store a JSON file containing cookies for the NGA website."""
+		
+		# Open the file for writing
+		fd = open(self._cookiepath, 'w')
+
+		# Try to write the JSON string)
+		try:
+			json.dump(cookiejson, fd)
+
+		except Exception as err:
+			# We must have a valid cookie file, or the NGA site will block us`
+			print("Error writing cookie archive %s. A valid cookie file is required to use this script." % cookiepath)
+			
+			# Re-raise the exception
+			raise err
+		
+		fd.close()
+	
+	
+	def __startAuthSession(self):
+		"""Authenticate with the NGA website."""
+		
+		# Create the session
+		self.__createSession()
+		
+		# Get the login page
+		print("Fetching authentication page...")
+		r = self._session.get(self._auth_url)
+		
+		if r.status_code != 200:
+			# Failed to retrieve the login page
+			raise ConnectionError("Unable to successfully retrieve authentication page.")
+			
+		else:
+			# Successfully retrieved the login page
+			soup = BeautifulSoup(r.text, "lxml")
+			
+			# Find the login form
+			authform = soup.find('form', attrs={'name': 'LoginForm'})
+			target = urljoin(self._home_url, authform.get('action'))
+
+			# Make an assumption that we're only going to have one text (username) and one password (password) field
+			auth_elements = {element['type']:element['name'] for element in authform.find_all('input')}
+			print("Retrieved authentication page. Please enter your garden.org login details:")
+			
+			form_data = {}
+			
+			# Ask the user for their credentials
+			form_data[auth_elements['text']] = input("Username: ")
+			form_data[auth_elements['password']] = getpass.getpass()
+			
+			# POST the form data
+			r = self._session.post(target, data=form_data)
+			
+			# Failed logins will return 200 and stay on the login page
+			if r.url == target:
+				raise PermissionError("Failed to redirect after login.")
+			
+			# We've redirected, so the auth may have worked...
+			if r.url != target and len(r.history) > 0:
+			
+				# Check the cookies to see if we have valid credentials
+				c = self._session.cookies.get_dict()
+				if 'cuuser' in c and 'cupass' in c:
+					self.__NGAcookie = self._session.cookies
+					self.__storeCookieArchive(c)
+					print("Successfully authenticated.")
+				else:
+					raise PermissionError("Failed to login: session cookie not found.")
+			else:
+				raise PermissionError("Failed to login: redirected to login page.")
+	
+	
+	def regenerateSessionCookie(self, cookiepath):
 		"""Regenerate the session cookie using a cookie file with existing auth info.
 		May be used to re-authenticate if your cookie file is not in the working 
 		directory when you create an instance of the NGA class."""
