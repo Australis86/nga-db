@@ -195,6 +195,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			
 			# Name is accepted
 			if 'accepted' in status:
+				#print("Accepted",botanical_name)
 				non_hyb_name = full_name.replace(' x ',' ')
 				
 				# Check if this is listed as a hybrid by the COL
@@ -296,6 +297,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			
 			# Not accepted
 			elif 'synonym' in status:
+				#print("Synonym",botanical_name)
 				(new_bot_name, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, nga_hyb)
 				
 				if new_bot_name is not None:
@@ -307,12 +309,15 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			
 			# Illegal name?
 			else:
+				#print("Illegal",botanical_name)
 				for cultivar in nga_dataset[full_name]:
 					nga_dataset[botanical_name][cultivar]['warning'] = True # Default value
 					nga_dataset[botanical_name][cultivar]['warning_desc'] = 'Illegal taxonomical name'
 		
 		# No match in DCA database or genus has been deprecated
 		else:
+			#print("Missing", botanical_name)
+			
 			# Remove hybrid symbol from the search term (COL doesn't use it and KEW uses a different one)
 			search_name = full_name.replace(' x ', ' ')
 			
