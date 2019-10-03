@@ -408,7 +408,20 @@ class NGA:
 		"""Format the parentage data to be consistent with the NGA database entry.
 		Current database rules do not permit the use of parentage fields containing
 		different genera unless the parent is a species."""
-	
+		
+		def checkUnknown(parent):
+			"""Method to check if the parentage provided is unknown."""
+			
+			# List of strings used to describe unknown parents
+			unknown_list = ['na','uk','?','unknown']
+			
+			# Convert to lowercase and clean up
+			genus = parent[0].lower().strip()
+			taxon = parent[1].lower().strip()
+			
+			# Return true if either the genus or species/hybrid taxon is unknown
+			return genus in unknown_list or taxon in unknown_list
+		
 		def checkIfSpecies(genus, parent):
 			"""Method to check if the parent is a species or hybrid."""
 			
@@ -424,7 +437,6 @@ class NGA:
 				# Hybrid of the same genus
 				return (different_genus, parent[1])
 		
-		
 		# Make sure the fields are present
 		if 'pod_parent' in dataset and 'pollen_parent' in dataset:
 			pod_parent = dataset['pod_parent']
@@ -432,12 +444,22 @@ class NGA:
 			
 			# Check the fields
 			if pod_parent is not None and pollen_parent is not None:
-				father = checkIfSpecies(genus, pod_parent)
-				mother = checkIfSpecies(genus, pollen_parent)
+			
+				# Check if unknown
+				unk_mother = checkUnknown(pod_parent)
+				unk_father = checkUnknown(pollen_parent)
+				
+				# If both parents are unknown, abort
+				if unk_mother and unk_father:
+					return None
+				
+				# Check if species (if so, we need the genus included)
+				mother = checkIfSpecies(genus, pod_parent)
+				father = checkIfSpecies(genus, pollen_parent)
 				
 				parentage = {
-					'formula': ' X '.join([father[1], mother[1]]),
-					'intergeneric_hybrid_parents': father[0] or mother[0],
+					'formula': ' X '.join([mother[1], father[1]]),
+					'intergeneric_hybrid_parents': mother[0] or father[0],
 				}
 				
 				return parentage

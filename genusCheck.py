@@ -784,7 +784,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 					print('NR  ', hybrid)
 				
 				# Hybrid entries with missing parentage information
-				elif 'parentage_exists' in hybrid_entry and not hybrid_entry['parentage_exists']:
+				elif 'parentage_exists' in hybrid_entry and not hybrid_entry['parentage_exists'] and hybrid_entry['parentage'] is not None:
 					update_hybrid_data = True
 					print('MP  ', hybrid, '--', hybrid_entry['parentage']['formula'])
 				
