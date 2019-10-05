@@ -669,72 +669,75 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 	else:
 		additions = []
 	
-	# Work through existing entries first
-	print("Processing botanical entries...", os.linesep,
-		"W = Warning (no action taken)", os.linesep, 
-		"MP = Missing parentage information (hybrids only)", os.linesep, 
-		"NH = Not listed as natural hybrid in the COL", os.linesep, 
-		"PH = Listed as a possible hybrid in the COL", os.linesep,
-		"CN = Has the genus as the common name", os.linesep,
-		"MC = Missing a common name", os.linesep)
-	
-	for botanical_name in entries:
-		botanical_entry = nga_dataset[botanical_name]
+	# Check if there are NGA entries
+	if len(entries) > 0:
 		
-		# Iterate through the selected clones of this botanical entry
-		for selection_name in botanical_entry:
-			selection_entry = botanical_entry[selection_name]
-			full_name = selection_entry['full_name']
-			update_selected_name = False
-			update_selected_data = False
+		# Work through existing entries first
+		print("Processing botanical entries...", os.linesep,
+			"W = Warning (no action taken)", os.linesep, 
+			"MP = Missing parentage information (hybrids only)", os.linesep, 
+			"NH = Not listed as natural hybrid in the COL", os.linesep, 
+			"PH = Listed as a possible hybrid in the COL", os.linesep,
+			"CN = Has the genus as the common name", os.linesep,
+			"MC = Missing a common name", os.linesep)
+		
+		for botanical_name in entries:
+			botanical_entry = nga_dataset[botanical_name]
 			
-			# Check parentage field for natural hybrids
-			if 'nat_hyb' in selection_entry and not selection_entry['parentage_exists']:
-				if 'parentage' in selection_entry and selection_entry['parentage'] is not None:
-					print('MP  ',botanical_name,'(%s)' % selection_entry['parentage']['formula'])
-					update_selected_data = True
-				else:
-					print('MP  ',botanical_name)
-			
-			# Flag an update to the database entry if the common name needs changing
-			if not selection_entry['warning']:
-				if selection_entry['common_name']:
-					print('CN  ',botanical_name)
-					update_selected_name = True
-				elif selection_entry['common_name'] is None and common_name is not None:
-					print('MC  ',botanical_name)
-					update_selected_name = True
-			
-			# Check if the botanical name field needs updating
-			if 'changed' in selection_entry and selection_entry['changed']:
-				if selection_entry['warning']:
-					print('W   ', botanical_name, '->', selection_entry['new_bot_name'], '(%s)' % selection_entry['warning_desc'])
-				else:
-					msg = ''
-					if 'duplicate' in selection_entry and selection_entry['duplicate']:
-						msg = "(New name already exists in NGA database)"
+			# Iterate through the selected clones of this botanical entry
+			for selection_name in botanical_entry:
+				selection_entry = botanical_entry[selection_name]
+				full_name = selection_entry['full_name']
+				update_selected_name = False
+				update_selected_data = False
+				
+				# Check parentage field for natural hybrids
+				if 'nat_hyb' in selection_entry and not selection_entry['parentage_exists']:
+					if 'parentage' in selection_entry and selection_entry['parentage'] is not None:
+						print('MP  ',botanical_name,'(%s)' % selection_entry['parentage']['formula'])
+						update_selected_data = True
 					else:
+						print('MP  ',botanical_name)
+				
+				# Flag an update to the database entry if the common name needs changing
+				if not selection_entry['warning']:
+					if selection_entry['common_name']:
+						print('CN  ',botanical_name)
 						update_selected_name = True
-					print('    ', botanical_name, '->', selection_entry['new_bot_name'], msg)
-			
-			# Warn only if it's not a natural hybrid or might be a natural hybrid
-			elif 'not_nat_hybrid' in selection_entry and selection_entry['not_nat_hybrid']:
-				print('NH  ', full_name)
-			elif 'possible_hybrid' in selection_entry and selection_entry['possible_hybrid']:
-				print('PH  ', full_name)
-			
-			# Otherwise print any warnings
-			elif selection_entry['warning']:
-				print('W   ', botanical_name, '(%s)' % selection_entry['warning_desc'])
-			
-			# Propose changes
-			if propose:
-				if update_selected_name:
-					nga_db.proposeNameChange(selection_entry, common_name)
-				if update_selected_data:
-					nga_db.proposeDataUpdate(selection_entry)
-	
-	
+					elif selection_entry['common_name'] is None and common_name is not None:
+						print('MC  ',botanical_name)
+						update_selected_name = True
+				
+				# Check if the botanical name field needs updating
+				if 'changed' in selection_entry and selection_entry['changed']:
+					if selection_entry['warning']:
+						print('W   ', botanical_name, '->', selection_entry['new_bot_name'], '(%s)' % selection_entry['warning_desc'])
+					else:
+						msg = ''
+						if 'duplicate' in selection_entry and selection_entry['duplicate']:
+							msg = "(New name already exists in NGA database)"
+						else:
+							update_selected_name = True
+						print('    ', botanical_name, '->', selection_entry['new_bot_name'], msg)
+				
+				# Warn only if it's not a natural hybrid or might be a natural hybrid
+				elif 'not_nat_hybrid' in selection_entry and selection_entry['not_nat_hybrid']:
+					print('NH  ', full_name)
+				elif 'possible_hybrid' in selection_entry and selection_entry['possible_hybrid']:
+					print('PH  ', full_name)
+				
+				# Otherwise print any warnings
+				elif selection_entry['warning']:
+					print('W   ', botanical_name, '(%s)' % selection_entry['warning_desc'])
+				
+				# Propose changes
+				if propose:
+					if update_selected_name:
+						nga_db.proposeNameChange(selection_entry, common_name)
+					if update_selected_data:
+						nga_db.proposeDataUpdate(selection_entry)
+		
+		
 	# Add any missing accepted names
 	if len(additions) > 0:
 		print("\nAccepted names missing from database:")
