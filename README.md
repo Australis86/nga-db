@@ -6,8 +6,8 @@ This repository is a collection of scripts for working with the NGA Database. Us
 ## Dependencies
 
 - Python 3 with the following modules
-  - Beautiful Soup 4
-  - Levenshtein
+  - Beautiful Soup 4 (bs4)
+  - Levenshtein (python-levenshtein)
   - requests
 
 ## Acknowledgements
