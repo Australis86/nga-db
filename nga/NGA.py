@@ -425,17 +425,18 @@ class NGA:
 		def checkIfSpecies(genus, parent):
 			"""Method to check if the parent is a species or hybrid."""
 			
-			different_genus = False
-			if genus != parent[0]:
-				different_genus = True
+			# Check if the parent is in the same genus as the hybrid
+			different_genus = (genus != parent[0])
 			
-			# Check if the entire string is just composed of lowercase and symbols
-			if all(c.islower() or not c.isalpha() for c in parent[1]) or different_genus:
-				# Species or hybrids from another genus
-				return (different_genus, ' '.join(parent))
+			# Check if is lowercase (and possibly symbols); i.e. a species
+			species = all(c.islower() or not c.isalpha() for c in parent[1])
+			
+			if species or different_genus:
+				rp = ' '.join(parent)
 			else:
-				# Hybrid of the same genus
-				return (different_genus, parent[1])
+				rp = parent[1]
+				
+			return (different_genus, species, rp)
 		
 		# Make sure the fields are present
 		if 'pod_parent' in dataset and 'pollen_parent' in dataset:
@@ -458,8 +459,9 @@ class NGA:
 				father = checkIfSpecies(genus, pollen_parent)
 				
 				parentage = {
-					'formula': ' X '.join([mother[1], father[1]]),
-					'intergeneric_hybrid_parents': mother[0] or father[0],
+					'formula': ' X '.join([mother[2], father[2]]),
+					'intergeneric': mother[0] or father[1],
+					'violates_rules': (mother[0] and not mother[1]) or (father[0] and not father[1])
 				}
 				
 				return parentage
@@ -723,7 +725,7 @@ class NGA:
 		
 		# Make sure we have valid data before continuing
 		if 'parentage_exists' in plant and 'parentage' in plant:
-			if plant['parentage_exists'] or plant['parentage'] is None or plant['parentage']['intergeneric_hybrid_parents']:
+			if plant['parentage_exists'] or plant['parentage'] is None or plant['parentage']['violates_rules']:
 				return None
 			
 			# Prepare the url

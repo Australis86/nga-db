@@ -590,8 +590,8 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 				
 				# Populate parentage field
 				if r['matched']:
-					hybrids[hybrid]['parentage'] = nga_db.formatParentage(genus, r)
 					hybrids[hybrid]['remove_quotes'] = hybrids[hybrid]['has_quotes']
+					hybrids[hybrid]['parentage'] = nga_db.formatParentage(genus, r)
 					
 					if parentage_check:
 						# Check if the NGA page has the parentage field populated
@@ -787,7 +787,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 					print('NR  ', hybrid)
 				
 				# Hybrid entries with missing parentage information
-				elif 'parentage_exists' in hybrid_entry and not hybrid_entry['parentage_exists'] and hybrid_entry['parentage'] is not None:
+				elif 'parentage_exists' in hybrid_entry and not hybrid_entry['parentage_exists'] and hybrid_entry['parentage'] is not None and not hybrid_entry['parentage']['violates_rules']:
 					update_hybrid_data = True
 					print('MP  ', hybrid, '--', hybrid_entry['parentage']['formula'])
 				
