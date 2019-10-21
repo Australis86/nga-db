@@ -437,6 +437,15 @@ class NGA:
 				rp = parent[1]
 				
 			return (different_genus, species, rp)
+			
+		def checkIfNaturalHybrid(parent):
+			"""Method to check if an entry is a natural hybrid 
+			(i.e. contains the multiplication symbol). If so, 
+			substitute for x to be consistent with the database."""
+			
+			# TO DO: Check for the presence of symbols
+			return parent
+			
 		
 		# Make sure the fields are present
 		if 'pod_parent' in dataset and 'pollen_parent' in dataset:
@@ -445,7 +454,7 @@ class NGA:
 			
 			# Check the fields
 			if pod_parent is not None and pollen_parent is not None:
-			
+				
 				# Check if unknown
 				unk_mother = checkUnknown(pod_parent)
 				unk_father = checkUnknown(pollen_parent)
@@ -457,6 +466,9 @@ class NGA:
 				# Check if species (if so, we need the genus included)
 				mother = checkIfSpecies(genus, pod_parent)
 				father = checkIfSpecies(genus, pollen_parent)
+				
+				mother = checkIfNaturalHybrid(mother)
+				father = checkIfNaturalHybrid(father)
 				
 				parentage = {
 					'formula': ' X '.join([mother[2], father[2]]),
