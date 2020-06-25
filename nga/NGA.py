@@ -363,7 +363,7 @@ class NGA:
 	
 	def search(self, search_term, recursed=False):
 		"""Search the NGA plant database for a given entry.
-		Returns boolean to indicate a match exists."""
+		Returns a dictionary of matches grouped by botanical name."""
 		
 		params = {'q':search_term}
 		
@@ -573,10 +573,14 @@ class NGA:
 		self.__submitProposal(self._new_plant_url, params)
 		
 	
-	def proposeNameChange(self, plant, common_name=None):
+	def proposeNameChange(self, plant, common_name=None, auto_approve=True):
 		"""Propose a change to the name of a plant in the NGA database.
 		Expects 'plant' to be a dictionary:
-			- new_bot_name if the entry needs to be renamed"""
+			- new_bot_name = botanical name to add or replace
+			- rename = replace the existing botanical name
+			- pid = plant id
+			- full_name = the full name for the plant (for debug purposes)
+			- common_exclude = list of common names to exclude"""
 		
 		# Prepare the url
 		url = self._plant_name_url % plant['pid']
@@ -728,7 +732,7 @@ class NGA:
 			data['submit'] = 'Submit your proposed changes'
 			
 			# POST the data
-			self.__submitProposal(url, data)
+			self.__submitProposal(url, data, auto_approve)
 	
 	
 	def proposeDataUpdate(self, plant, genus=None):
