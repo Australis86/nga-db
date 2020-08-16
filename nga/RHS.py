@@ -2,11 +2,13 @@
 
 """Module for searching the RHS Orchid Register and caching registration details.
 
+Parentheses in grex names are replaced with square brackets due to parentheses causing problems in parentage fields.
+
 This script is designed for Python 3 and Beautiful Soup 4 with the lxml parser."""
 
-__version__ = "1.1"
+__version__ = "1.2"
 __author__ = "Joshua White"
-__copyright__ = "Copyright 2019"
+__copyright__ = "Copyright 2020"
 __email__ = "jwhite88@gmail.com"
 __licence__ = "GNU Lesser General Public License v3.0"
 
@@ -110,8 +112,8 @@ class Register:
 				for row in tr:
 					fieldname = row.find('th')
 					fieldvalues = row.findAll('td')
-					grex['Pod Parent %s' % fieldname.text] = fieldvalues[0].text.replace('{var}','var.').replace('{subsp}','subsp.')
-					grex['Pollen Parent %s' % fieldname.text] = fieldvalues[1].text.replace('{var}','var.').replace('{subsp}','subsp.')
+					grex['Pod Parent %s' % fieldname.text] = fieldvalues[0].text.replace('{var}','var.').replace('{subsp}','subsp.').replace('(','[').replace(')',']')
+					grex['Pollen Parent %s' % fieldname.text] = fieldvalues[1].text.replace('{var}','var.').replace('{subsp}','subsp.').replace('(','[').replace(')',']')
 				
 				# Finally, extract the RHS ID number from the URL
 				matches = re.findall(r'\d+', url)
@@ -195,7 +197,10 @@ class Register:
 				if len(result_grex) > 0:
 					page_genus = result_grex
 				hybrid = cells[1]
+				
+				# Tidy up the name
 				name = hybrid.text.strip() # Some RHS entries have extraneous whitespace
+				name = name.replace('(','[').replace(')',']')
 				
 				# If the resultant grex is in the correct genus
 				if page_genus in genus:
@@ -209,12 +214,14 @@ class Register:
 		"""Search the register for a registration matching
 		the supplied genus and grex names."""
 		
-		params = {'genus': genus, 'grex': grex}
+		# Create the URL parameters object
+		db_params = {'genus': genus, 'grex': grex.replace('(','[').replace(')',']')} # Substitute any parentheses in the grex for brackets
+		url_params = {'genus': genus, 'grex': grex.replace('[','(').replace(']',')')} # Substitute any brackets in the grex for parentheses
 		
 		# First check to see if this entry is currently in the database cache
 		if self.__dbconn is not None and not force:
 			sql = '''SELECT genus, epithet, pod_parent_genus, pod_parent_epithet, pollen_parent_genus, pollen_parent_epithet FROM registrations WHERE genus=:genus AND epithet=:grex'''
-			cur = self.__dbconn.execute(sql, params)
+			cur = self.__dbconn.execute(sql, db_params)
 			rows = cur.fetchall()
 			
 			if rows is not None and len(rows) > 0:
@@ -222,7 +229,7 @@ class Register:
 				
 			# If this isn't registered and the number of search attempts exceeds the maximum, abort the attempt
 			sql = '''SELECT genus, grex, attempts FROM invalid WHERE genus=:genus AND grex=:grex'''
-			cur = self.__dbconn.execute(sql, params)
+			cur = self.__dbconn.execute(sql, db_params)
 			rows = cur.fetchall()
 			
 			if rows is not None and len(rows) > 0:
@@ -231,7 +238,7 @@ class Register:
 					return {'matched':False, 'matches':None, 'source':'db', 'pod_parent':None, 'pollen_parent':None}
 		
 		try:
-			r = self._session.get(self._search_url, params=params)
+			r = self._session.get(self._search_url, params=url_params)
 		except requests.exceptions.RequestException as e:
 			return None
 		else:
