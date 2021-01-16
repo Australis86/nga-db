@@ -4,19 +4,21 @@
 
 This script is designed for Python 3 and Beautiful Soup 4 with the lxml parser."""
 
-__version__ = "1.1"
+__version__ = "2.0"
 __author__ = "Joshua White"
-__copyright__ = "Copyright 2019"
+__copyright__ = "Copyright 2021"
 __email__ = "jwhite88@gmail.com"
 __licence__ = "GNU Lesser General Public License v3.0"
 
 # Module imports
 import csv
 import os
+import json
 import requests
 import shutil
 import sqlite3
 import zipfile
+from requests.auth import HTTPBasicAuth
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from datetime import datetime, timedelta
@@ -24,12 +26,16 @@ from sys import stdout
 
 class DCA:
 	
-	def __init__(self):
-		"""Create an instance and set up a requests session to the KEW WCSP."""
+	# TO DO: Allow the username and password to be retrieved from a .gbif file (similar to .pgpass files)
+	
+	def __init__(self, username, password):
+		"""Create an instance and set up a requests session to the COL API."""
 		
-		self._search_url = 'http://www.catalogueoflife.org/DCA_Export/index.php'
+		self._search_url = 'https://api.catalogueoflife.org/dataset/3LR/nameusage/search'
+		self._export_request_url = 'https://api.catalogueoflife.org/dataset/%s/export'
+		self._export_retrieve_url = 'https://api.catalogueoflife.org/export/%s'
 		self._session = requests.Session()
-		self._session.get(self._search_url)
+		self.__auth = HTTPBasicAuth(username, password) # GBIF account
 		self.__cache = None
 		self.__cache_age = datetime.now() - timedelta(days=5) # Default value
 	
@@ -60,48 +66,63 @@ class DCA:
 		zname = '%s.zip' % genus
 		zpath = os.path.join(self.__cache, zname)
 		gpath = None
+		errmsg = None
 		
-		# Form data to POST
-		data = {'kingdom':'Plantae', 'genus':genus, 'block':3}
+		# Query parameters
+		params = {'q':genus, 'minRank':'GENUS', 'maxRank':'GENUS', 'offset':0, 'limit':10}
 		
+		# First step is to get the taxon ID, then use that to retrieve the DwC-A export
 		try:
-			r = self._session.post(self._search_url, data=data)
+			r = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
 		except requests.exceptions.RequestException as e:
-			return None
+			return (None, 'Unable to retrieve taxon ID.')
 		else:
-			# Parse the response HTML here for the link to the ZIP file
-			soup = BeautifulSoup(r.text, "lxml")
-			links = soup.findAll('a')
-			target = None
+			rdata = r.json()
+			taxonID = rdata['result'][0]['id']
+			datasetKey = rdata['result'][0]['usage']['datasetKey']
 			
-			for link in links:
-				if 'zip' in link['href']:
-					target = urljoin(self._search_url, link['href'])
-					break
+			# Prepare the export data
+			data = {"format":"DWCA", "taxonID":taxonID}
 			
-			# If we were able to detect a link
-			if target is not None:
-				r = self._session.get(target, stream=True)
-
-				# Write out the file stream received
-				with open(zpath, 'wb') as output:
-					for chunk in r.iter_content(1024):
-						output.write(chunk)
-		
-			# If the zip file successfully downloaded and is a valid zipfile, extract it
-			if os.path.exists(zpath):
-				if zipfile.is_zipfile(zpath):
-					zfile = zipfile.ZipFile(zpath)
-					gpath = os.path.join(self.__cache, genus) # Create a subfolder in the cache directory using the genus name
-					zfile.extractall(gpath) # Extract the zip file into the new subfolder
+			# Post to the asynchronous API (this requests a build of an export)
+			try:
+				r = self._session.post(self._export_request_url % datasetKey, auth=self.__auth, data=json.dumps(data), headers={"Content-Type": "application/json"})
+			except requests.exceptions.RequestException as e:
+				return (None, 'Unable to request build of the Darwin Core Archive.')
+			else:
+				# This should return the export key that can be used to fetch the ZIP file
+				rdata = r.json()
+				
+				# Fetch the export
+				try:
+					# TO DO: This is currently returning a 406 error. Need to work out why.
+					r = self._session.get(self._export_retrieve_url % rdata, auth=self.__auth, headers={"Accept": "application/zip"}, stream=True)
+				except requests.exceptions.RequestException as e:
+					return (None, None)
 				else:
-					print("Invalid zip archive found. Removing.")
-					keepZIP = False
-					
-				if not keepZIP:
-					os.remove(zpath)
+					if (r.status_code != 200):
+						return (None, 'HTTP Error %s was returned when attempting to fetch the Darwin Core Archive.' % r.status_code)
+
+					# Write out the file stream received
+					with open(zpath, 'wb') as output:
+						for chunk in r.iter_content(1024):
+							output.write(chunk)
+			
+				# If the zip file successfully downloaded and is a valid zipfile, extract it
+				if os.path.exists(zpath):
+					if zipfile.is_zipfile(zpath):
+						zfile = zipfile.ZipFile(zpath)
+						gpath = os.path.join(self.__cache, genus) # Create a subfolder in the cache directory using the genus name
+						zfile.extractall(gpath) # Extract the zip file into the new subfolder
+					else:
+						errmsg = "The downloaded Darwin Core Archive export was not a valid zip file."
+						gpath = None
+						keepZIP = False
+						
+					if not keepZIP:
+						os.remove(zpath)
 		
-		return gpath
+		return (gpath, errmsg)
 	
 	
 	def fetchGenus(self, genus):
@@ -109,6 +130,8 @@ class DCA:
 		
 		if self.__cache is None:
 			raise ValueError("DCA cache directory has not been set using setCache().")
+		
+		errmsg = None
 		
 		# Check for recent data
 		fname = '%s.db' % genus
@@ -121,10 +144,13 @@ class DCA:
 		else:
 			stdout.write('Fetching Catalogue of Life Darwin Core Archive Export... ')
 			stdout.flush()
-			gpath = self._exportGenus(genus)
+			(gpath, errmsg) = self._exportGenus(genus)
 			
 			# Attempt to build the DB
 			if gpath is not None:
+				return None # Temporary break
+				# TO DO: Modify the code below to handle the new DwC-A format
+				
 				tmpdir = os.path.join(gpath, 'tmp')
 				sqldir = os.path.join(gpath, 'import-scripts/sqlite3')
 				
@@ -218,16 +244,21 @@ class DCA:
 					stdout.write('failed. Import script path does not exist.\r\n')
 					stdout.flush()
 
-		stdout.write('failed. Unknown error.\r\n')
-		stdout.flush()
+		if errmsg is None:
+			stdout.write('failed. Unknown error.\r\n')
+			stdout.flush()
+		else:
+			stdout.write('failed with the following error:\r\n')
+			stdout.flush()
+			print(errmsg)
 		return None
 	
 	
-def testModule(genus='Cymbidium', cache_path="./"):
+def testModule(username, password, genus='Cymbidium', cache_path="./"):
 	"""A simple test to check that all functions are working correctly.
 	The default is to create a cache database in the local directory."""
 	
-	myDCA = DCA()
+	myDCA = DCA(username, password)
 	try:
 		print("Testing exception handling...")
 		myDCA.fetchGenus(genus) # Prove the exception works
