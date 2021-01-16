@@ -1,8 +1,8 @@
 # National Gardening Association Plant Database Management Scripts
 
-This repository is a collection of scripts for working with the NGA Database. Use of the scripts with the NGA site requires an admin account with the NGA.
+This repository is a collection of scripts for working with the NGA Database.
 
-## Accounts
+## Required Accounts
 
 Use of these scripts requires accounts to enable access to datasets and for modification of the NGA Plant Database.
 
