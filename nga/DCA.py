@@ -95,8 +95,7 @@ class DCA:
 				
 				# Fetch the export
 				try:
-					# TO DO: This is currently returning a 406 error. Need to work out why.
-					r = self._session.get(self._export_retrieve_url % rdata, auth=self.__auth, headers={"Accept": "application/zip"}, stream=True)
+					r = self._session.get(self._export_retrieve_url % rdata, auth=self.__auth, headers={"Accept": "application/octet-stream, application/zip"}, stream=True)
 				except requests.exceptions.RequestException as e:
 					return (None, None)
 				else:
