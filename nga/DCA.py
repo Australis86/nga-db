@@ -18,26 +18,74 @@ import requests
 import shutil
 import sqlite3
 import zipfile
+import getpass
 from requests.auth import HTTPBasicAuth
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from datetime import datetime, timedelta
 from sys import stdout
+script_path = os.path.dirname(__file__)
+
 
 class DCA:
 	
-	# TO DO: Allow the username and password to be retrieved from a .gbif file (similar to .pgpass files)
-	
-	def __init__(self, username, password):
+	def __init__(self):
 		"""Create an instance and set up a requests session to the COL API."""
 		
 		self._search_url = 'https://api.catalogueoflife.org/dataset/3LR/nameusage/search'
 		self._export_request_url = 'https://api.catalogueoflife.org/dataset/%s/export'
 		self._export_retrieve_url = 'https://api.catalogueoflife.org/export/%s'
 		self._session = requests.Session()
-		self.__auth = HTTPBasicAuth(username, password) # GBIF account
 		self.__cache = None
 		self.__cache_age = datetime.now() - timedelta(days=5) # Default value
+
+		# Set the path to the GBIF auth file
+		if 'GBIF_PATH' in globals():
+			self._authpath = GBIF_PATH
+		else:
+			self._authpath = os.path.join(os.path.expanduser('~'), '.gbif')
+
+		# This will look for the GBIF credentials
+		self.__loadAuthFile(self._authpath)
+
+
+	def __loadAuthFile(self, auth_file):
+		"""Load a file containing the user's GBIF account details."""
+	
+		if not os.path.exists(auth_file):
+			self.__createAuthFile(auth_file)
+
+		gbif = open(auth_file, 'r')
+		gbif_auth = gbif.read()
+		gbif.close()
+	
+		gbif_account = gbif_auth.split(':')
+		if len(gbif_account) > 1:
+			username = gbif_account[0]
+			password = gbif_account[1]
+		
+		self.__auth = HTTPBasicAuth(username, password) # GBIF account
+	
+	
+	def __createAuthFile(self, auth_file):
+		"""Store a set of authentication parameters."""
+		
+		# Ask the user for their credentials
+		user = input("Username: ")
+		pwd = getpass.getpass()
+
+		# Test the credentials
+		r = requests.get("https://api.catalogueoflife.org/user/me", auth=HTTPBasicAuth(user, pwd), headers={'accept': 'application/json'})
+		if r.status_code != 200:
+			raise PermissionError("Failed to authenticate with the COL API.")
+		else:
+			print("Successfully tested authentication.")
+		
+		# Store the credentials
+		gbif = open(auth_file, 'w')
+		os.chmod(auth_file, 0o0600) # Try to ensure only the user can read it
+		gbif.write('%s:%s' % (user,pwd))
+		gbif.close()
 	
 	
 	def setCache(self, cache_path):
@@ -82,7 +130,7 @@ class DCA:
 			datasetKey = rdata['result'][0]['usage']['datasetKey']
 			
 			# Prepare the export data
-			data = {"format":"DWCA", "taxonID":taxonID}
+			data = {"format":"DWCA", "taxonID":taxonID, "synonyms": True}
 			
 			# Post to the asynchronous API (this requests a build of an export)
 			try:
@@ -147,11 +195,8 @@ class DCA:
 			
 			# Attempt to build the DB
 			if gpath is not None:
-				return None # Temporary break
-				# TO DO: Modify the code below to handle the new DwC-A format
-				
 				tmpdir = os.path.join(gpath, 'tmp')
-				sqldir = os.path.join(gpath, 'import-scripts/sqlite3')
+				sqldir = script_path
 				
 				# Only continue if the import script directory exists
 				if os.path.exists(sqldir):
@@ -163,29 +208,17 @@ class DCA:
 					# Create the temporary folder
 					os.mkdir(tmpdir)
 					
-					# Build the SQLite command file
-					cf = open(os.path.join(sqldir, 'create.sql'), 'r')
-					cs = cf.read()
-					cf.close()
-					
-					# Replace references to @TABLEPREFIX@
-					# Save a copy of the script (for reference only)
-					cs = cs.replace('@TABLEPREFIX@','')
-					cf = open(os.path.join(tmpdir, 'create.sql'), 'w')
-					cf.write(cs)
-					cf.close()
-					
-					# Prepare the commands
+					# File name : table name relationship
 					tables = [
-						('distribution.txt','Distribution'),
-						('description.txt','Description'),
-						('reference.txt','Reference'),
-						('taxa.txt','Taxon'),
-						('vernacular.txt','VernacularName'),
+						('Distribution.tsv','Distribution'),
+						('SpeciesProfile.tsv','SpeciesProfile'),
+						('Taxon.tsv','Taxon'),
+						('VernacularName.tsv','VernacularName'),
 					]
 					
+					# Prepare the commands
 					commands = [
-						".read %s/tmp/create.sql" % genus,
+						".read %s/create-DCA-tables.sql" % script_path,
 						".mode tabs",
 					]
 					
@@ -199,10 +232,17 @@ class DCA:
 					cf.close()
 					
 					# Create the SQL database
+					if os.path.exists(fpath):
+						os.remove(fpath)
+					
 					conn = sqlite3.connect(fpath)
 					cur = conn.cursor()
 					
 					# Try to create the tables
+					c = open(os.path.join(script_path,'create-DCA-tables.sql'), 'r')
+					cs = c.read()
+					c.close()
+					
 					queries = cs.split(';')
 					for q in queries:
 						cur.execute(q)
@@ -216,7 +256,7 @@ class DCA:
 							
 							# Get the column names from the header row
 							columns = next(reader)
-							columns = [h.strip() for h in columns]
+							columns = [h.strip().split(':')[-1] for h in columns]
 							
 							# Must quote column names, since keywords 'order' and 'references' are used
 							query = 'INSERT INTO %s({0}) VALUES ({1})' % t[1]
@@ -251,13 +291,13 @@ class DCA:
 			stdout.flush()
 			print(errmsg)
 		return None
-	
-	
-def testModule(username, password, genus='Cymbidium', cache_path="./"):
+
+
+def testModule(genus='Cymbidium', cache_path="./"):
 	"""A simple test to check that all functions are working correctly.
 	The default is to create a cache database in the local directory."""
 	
-	myDCA = DCA(username, password)
+	myDCA = DCA()
 	try:
 		print("Testing exception handling...")
 		myDCA.fetchGenus(genus) # Prove the exception works

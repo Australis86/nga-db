@@ -9,7 +9,7 @@ Use of these scripts requires accounts to enable access to datasets and for modi
 - [NGA](https://garden.org/) account required for proposing changes (admin account required for automatically accepting proposals)
 - [GBIF](https://www.gbif.org/) account required for use of the Catalogue of Life API
 
-> A future version of the code will allow the user to initialise a set of login files from the CLI.
+On the first execution of `genusCheck.py`, it will check for two files - an NGA session cookie (`~/.nga`) and a GBIF authentication file (`~/.gbif`). If either are not found, it will prompt the user to log in with their account details. Custom paths for these files can be specified by setting the global variables `NGA_COOKIE` and `GBIF_PATH` respectively.
 
 ## Dependencies
 

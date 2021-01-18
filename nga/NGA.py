@@ -48,10 +48,11 @@ class NGA:
 		self._plant_data_url = 'https://garden.org/plants/propose/databox/%s/'
 		self._new_plant_url = 'https://garden.org/plants/propose/new_plant/'
 		
+		# Set the path to the NGA cookie
 		if 'NGA_COOKIE' in globals():
 			self._cookiepath = NGA_COOKIE
 		else:
-			self._cookiepath = './nga.cookies'
+			self._cookiepath = os.path.join(os.path.expanduser('~'), '.nga')
 		self.__NGAcookie = requests.cookies.RequestsCookieJar()
 		
 		# This will look for a JSON file containing authentication info for the website
@@ -98,6 +99,7 @@ class NGA:
 		
 		# Open the file for writing
 		fd = open(self._cookiepath, 'w')
+		os.chmod(self._cookiepath, 0o0600) # Try to ensure only the user can read it
 
 		# Try to write the JSON string)
 		try:
@@ -798,9 +800,6 @@ class NGA:
 				
 				# POST the data and automatically approve the proposal
 				self.__submitProposal(url, data)
-	
-	
-# TO DO: Add functions here for creating the cached cookie file
 	
 	
 def testModule(cookiepath=None):
