@@ -167,10 +167,10 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		if dca_db is not None:
 			# Prepare the SQL query
 			if fn == 2:
-				sql = "SELECT taxonomicStatus, locality, description FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE genus=? AND specificEpithet=? AND (verbatimTaxonRank='' OR verbatimTaxonRank IS NULL) AND (infraspecificEpithet='' OR infraspecificEpithet IS NULL) GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
+				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE genericName=? AND specificEpithet=? AND taxonRank='SPECIES' AND (infraspecificEpithet='' OR infraspecificEpithet IS NULL) GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
 				params = (fields[0], fields[1])
 			elif fn == 4:
-				sql = "SELECT taxonomicStatus, locality, description FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID  WHERE genus=? AND specificEpithet=? AND verbatimTaxonRank=? AND infraspecificEpithet=? GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
+				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID  WHERE genericName=? AND specificEpithet=? AND taxonRank=? AND infraspecificEpithet=? GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
 				params = (fields[0], fields[1], fields[2], fields[3])
 			else:
 				# Not sure what happened here...
@@ -186,7 +186,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		
 		# If we have valid results...
 		if len(results) > 0:
-			status = results[0][0]
+			status = results[0][0].lower()
 			distribution = results[0][1]
 			description = results[0][2]
 			
@@ -369,7 +369,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				matched = False
 				
 				# Get the list of taxa
-				sql = "SELECT genus || ' ' || specificEpithet || ' ' || verbatimTaxonRank || ' ' || infraspecificEpithet as epithet from Taxon GROUP BY epithet"
+				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || taxonRank || ' ' || infraspecificEpithet as epithet from Taxon GROUP BY epithet"
 				cur.execute(sql)
 				
 				# Iterate through the names and compare to the entry from the NGA`
@@ -409,7 +409,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 	
 	if dca_db is not None:
 		# Check for missing accepted names
-		sql = "SELECT genus || ' ' || specificEpithet || ' ' || verbatimTaxonRank || ' ' || infraspecificEpithet as epithet, locality, description from Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE taxonomicStatus='accepted name' GROUP BY epithet"
+		sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN taxonRank='FORM' THEN 'f.' WHEN taxonRank='VARIETY' THEN 'var.' WHEN taxonRank='SUBSPECIES' THEN 'subsp.' ELSE '' END || ' ' || infraspecificEpithet as epithet, locality, taxonRemarks from Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE taxonomicStatus='ACCEPTED' GROUP BY epithet"
 		cur.execute(sql)
 		rows = cur.fetchall()
 
