@@ -15,141 +15,132 @@ __licence__ = "GNU Lesser General Public License v3.0"
 import os
 import requests
 import re
+import getpass
+from requests.auth import HTTPBasicAuth
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
 class COL:
-	
+
 	def __init__(self):
-		"""Create an instance and set up a requests session to the KEW WCSP."""
+		"""Create an instance and set up a requests session to the COL API."""
 		
-		self._search_url = 'http://www.catalogueoflife.org/col/search/all'
+		self._search_url = 'https://api.catalogueoflife.org/dataset/3LR/nameusage/search'
+		self._synonym_url = 'https://api.catalogueoflife.org/dataset/%s/taxon/%s/synonyms'
 		self._session = requests.Session()
-		self._session.get(self._search_url)
+		self.__cache = None
+		self.__cache_age = datetime.now() - timedelta(days=5) # Default value
+
+		# Set the path to the GBIF auth file
+		if 'GBIF_PATH' in globals():
+			self._authpath = GBIF_PATH
+		else:
+			self._authpath = os.path.join(os.path.expanduser('~'), '.gbif')
+
+		# This will look for the GBIF credentials
+		self.__loadAuthFile(self._authpath)
+
+
+	def __loadAuthFile(self, auth_file):
+		"""Load a file containing the user's GBIF account details."""
+	
+		if not os.path.exists(auth_file):
+			self.__createAuthFile(auth_file)
+
+		gbif = open(auth_file, 'r')
+		gbif_auth = gbif.read()
+		gbif.close()
+	
+		gbif_account = gbif_auth.split(':')
+		if len(gbif_account) > 1:
+			username = gbif_account[0]
+			password = gbif_account[1]
+		
+		self.__auth = HTTPBasicAuth(username, password) # GBIF account
+	
+	
+	def __createAuthFile(self, auth_file):
+		"""Store a set of authentication parameters."""
+		
+		# Ask the user for their credentials
+		user = input("Username: ")
+		pwd = getpass.getpass()
+
+		# Test the credentials
+		r = requests.get("https://api.catalogueoflife.org/user/me", auth=HTTPBasicAuth(user, pwd), headers={'accept': 'application/json'})
+		if r.status_code != 200:
+			raise PermissionError("Failed to authenticate with the COL API.")
+		else:
+			print("Successfully tested authentication.")
+		
+		# Store the credentials
+		gbif = open(auth_file, 'w')
+		os.chmod(auth_file, 0o0600) # Try to ensure only the user can read it
+		gbif.write('%s:%s' % (user,pwd))
+		gbif.close()
 	
 	
 	def search(self, search_term, fetchSynonyms=False):
 		"""Search the COL for a particular entry and returned the accepted name or synonyms."""
+	
+		# Query parameters
+		params = {'q':search_term, 'content': 'SCIENTIFIC_NAME', 'maxRank':'SPECIES', 'type': 'EXACT', 'offset':0, 'limit':10}
 		
-		def checkRow(result_cells, checkname):
-			"""Method to check the contents of a row."""
-			
-			result = {'accepted': False, 'name': None }
-			
-			# The COL search results only have one italic tag; 
-			# the "var" or other notation is actually a non-italic span.
-			italics = result_cells[0].find('i')
-			if italics is not None:
-				result_name = italics.text.replace("  ", " ")
-				
-				if result_name == checkname:
-					status = result_cells[2].text
-					accepted = 'accepted' in status
-					result['accepted'] = accepted
-					
-					if accepted:
-						result['name'] = result_name
-					else:
-						accepted_name = result_cells[2].find('i')
-						if accepted_name is not None:
-							new_name = accepted_name.text.replace('  ', ' ')
-							result['name'] = new_name
-							
-					return result
-					
-			return None
-		
-		
-		# Prepare the search parameters
-		search_key = search_term.replace('nothosubsp. ','').replace('subsp. ','').replace('var. ','').replace('f. ','').replace('  ',' ')
-		
-		# Remove 'subsp.', 'var.' and 'f.' as these sometimes stuff up the search
-		params = {
-			'fossil':0, 
-			'key':search_key, 
-			'search':'Search', 
-			'match':1 # Should give us an exact match (species and subspecies)
-		}
-		
-		
+		# First step is to get the taxon ID, then fetch the synonyms if required
 		try:
-			r = self._session.get(self._search_url, params=params)
+			r = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
 		except requests.exceptions.RequestException as e:
-			print(str(e))
-			return None
+			return (None, 'Unable to retrieve taxon.')
 		else:
-			soup = BeautifulSoup(r.text, "lxml")
-			table = soup.find('table')
-			tr = soup.findAll('tr')
-			last_match = None
+			rdata = r.json()
+			if rdata['empty']:
+				# No match found
+				return None
 			
-			for row in tr:
-				cells = row.findAll('td')
-				if len(cells) > 0:
+			# Closest match is the first entry
+			closest = rdata['result'][0]
+			
+			if fetchSynonyms:
+				# Get the taxon ID so that we can get the synonyms
+				taxonID = closest['id']
+				datasetKey = closest['usage']['datasetKey']
+				
+				# Post to the asynchronous API (this requests a build of an export)
+				try:
+					r = self._session.get(self._synonym_url % (datasetKey, taxonID), auth=self.__auth, headers={"Content-Type": "application/json"})
+				except requests.exceptions.RequestException as e:
+					return (None, 'Unable to retrieve synonyms.')
+				else:
+					synonyms = []
+					rdata = r.json()
 					
-					# Ensure this isn't an illegal name or a mismatch
-					cell_text = cells[0].text
-					if 'illeg.' not in cell_text and search_term in cell_text:
-						if fetchSynonyms:
-							link = cells[0].find('a')
-							status = cells[2].text
-							
-							# Only query further if the entry is an accepted name
-							if link is not None and 'accepted' in status:
-								rel_url = link['href']
-								abs_url = urljoin(self._search_url, rel_url)
-								
-								try:
-									r = self._session.get(abs_url)
-								except requests.exceptions.RequestException as e:
-									print(str(e))
-									return None
-								else:
-									soup = BeautifulSoup(r.text, "lxml")
-									th = soup.find('th', string=re.compile('Synonym')) # This looks for the row with the 'Synonym' header in it
-									
-									# If there are synonyms, then an adjacent cell will have a table of them
-									if th is not None:
-										syn_row = th.parent
-										table = syn_row.find('table')
-										
-										# Not every plant has synonyms
-										if table is not None:
-											rows = table.findAll('tr')
-											synonyms = []
-											
-											# Each row will be a different synonym
-											for row in rows: 
-												cells = row.findAll('td') # First cell contains the synonym name
-												cell_contents = cells[0].contents
-												cell_text = cells[0].text
-												
-												# Do not consider illegal synonyms
-												if 'illeg.' not in cell_text:
-													synonym_tags = cell_contents[:-1] # Exclude the last element, as this is the discoverer's name
-													synonym = ''.join([getattr(x, 'text', x) for x in synonym_tags]) # Convert to plain text
-													synonyms.append(synonym)
-												
-											return synonyms
-									
-									return None
-						
-						else:
-							# Only continue if the name is exact
-							row_data = checkRow(cells, search_term)
-							if row_data is not None:
-								if row_data['accepted']:
-									return row_data['name']
-								else:
-									last_match = row_data
+					# Check if there are any synonyms
+					if not rdata:
+						return None
+					
+					# Iterate through the types of synonyms and collect the botanical names
+					for synonym_type in rdata:
+						for synonym in rdata[synonym_type]:
+							synonyms.append(synonym[0]['scientificName'])
+					
+					synonyms.sort()
+					return synonyms
 			
-			if last_match is not None:
-				return last_match['name']
-			
-		return None
-	
-	
-	
+			else:
+				# If we don't need the synonyms, then everything we need is in this result dataset
+				usage = closest['usage']
+				status = usage['status'].lower()
+				if 'accepted' in status:
+					acceptedname = usage['name']
+				elif 'synonym' in status:
+					acceptedname = usage['accepted']['name']
+				else:
+					return None
+
+				return acceptedname['scientificName']
+
+
 def testModule(search_term='Cymbidium iansonii'):
 	"""A simple test to check that all functions are working correctly."""
 	
