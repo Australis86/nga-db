@@ -4,12 +4,11 @@
 
 This script is designed for Python 3 and Beautiful Soup 4 with the lxml parser."""
 
-__version__ = "1.1"
+__version__ = "2.0"
 __author__ = "Joshua White"
-__copyright__ = "Copyright 2019"
+__copyright__ = "Copyright 2021"
 __email__ = "jwhite88@gmail.com"
 __licence__ = "GNU Lesser General Public License v3.0"
-
 
 # Module imports
 import os
@@ -58,12 +57,13 @@ class COL:
 			password = gbif_account[1]
 		
 		self.__auth = HTTPBasicAuth(username, password) # GBIF account
-	
-	
+
+
 	def __createAuthFile(self, auth_file):
 		"""Store a set of authentication parameters."""
 		
 		# Ask the user for their credentials
+		print("Please enter your GBIF credentials.")
 		user = input("Username: ")
 		pwd = getpass.getpass()
 

@@ -65,12 +65,13 @@ class DCA:
 			password = gbif_account[1]
 		
 		self.__auth = HTTPBasicAuth(username, password) # GBIF account
-	
-	
+
+
 	def __createAuthFile(self, auth_file):
 		"""Store a set of authentication parameters."""
 		
 		# Ask the user for their credentials
+		print("Please enter your GBIF credentials.")
 		user = input("Username: ")
 		pwd = getpass.getpass()
 

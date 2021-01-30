@@ -55,11 +55,13 @@ class NGA:
 			self._cookiepath = os.path.join(os.path.expanduser('~'), '.nga')
 		self.__NGAcookie = requests.cookies.RequestsCookieJar()
 		
+		# Create the session
+		self.__createSession()
+		
 		# This will look for a JSON file containing authentication info for the website
 		# If it exists, it will load it and use it for the session
 		self.__loadCookieArchive(self._cookiepath)
 		
-		self.__createSession()
 		self._session.cookies = self.__NGAcookie
 		self._session.get(self._home_url)
 		
@@ -130,6 +132,8 @@ class NGA:
 			raise ConnectionError("Unable to successfully retrieve authentication page.")
 			
 		else:
+			# TO DO: Rewrite to use the new login form
+			
 			# Successfully retrieved the login page
 			soup = BeautifulSoup(r.text, "lxml")
 			
