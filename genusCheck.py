@@ -409,7 +409,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 	
 	if dca_db is not None:
 		# Check for missing accepted names
-		sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN taxonRank='FORM' THEN 'f.' WHEN taxonRank='VARIETY' THEN 'var.' WHEN taxonRank='SUBSPECIES' THEN 'subsp.' ELSE '' END || ' ' || infraspecificEpithet as epithet, locality, taxonRemarks from Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE taxonomicStatus='ACCEPTED' GROUP BY epithet"
+		sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN taxonRank='FORM' THEN 'f.' WHEN taxonRank='VARIETY' THEN 'var.' WHEN taxonRank='SUBSPECIES' THEN 'subsp.' ELSE '' END || ' ' || infraspecificEpithet as epithet, locality, taxonRemarks from Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE taxonomicStatus='ACCEPTED' AND specificEpithet!='' GROUP BY epithet"
 		cur.execute(sql)
 		rows = cur.fetchall()
 
@@ -809,7 +809,7 @@ def main(namespace_args):
 		pass
 	
 	# Fetch latest genus data from the Darwin Core Archive
-	darwin_core = nga.DCA.DCA()
+	darwin_core = nga.COL.DCA()
 	darwin_core.setCache(args.cache)
 	dca_cache = darwin_core.fetchGenus(args.genus)
 	
