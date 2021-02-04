@@ -132,36 +132,32 @@ class NGA:
 			raise ConnectionError("Unable to successfully retrieve authentication page.")
 			
 		else:
-			# TO DO: Rewrite to use the new login form
-			
 			# Successfully retrieved the login page
+			target = urljoin(self._home_url, '/i/ajax/users/login_check.php')
 			soup = BeautifulSoup(r.text, "lxml")
 			
-			# Find the login form
-			authform = soup.find('form', attrs={'name': 'LoginForm'})
-			target = urljoin(self._home_url, authform.get('action'))
-
-			# Make an assumption that we're only going to have one text (username) and one password (password) field
-			auth_elements = {element['type']:element['name'] for element in authform.find_all('input')}
+			# Find the redirect address
+			redirect_url = soup.find(id='login_redirect')['value']
+			redirect = urljoin(self._home_url, redirect_url)
 			print("Retrieved authentication page. Please enter your garden.org login details:")
-			
+
+			# Build the object to post to the server
 			form_data = {}
 			
 			# Ask the user for their credentials
-			form_data[auth_elements['text']] = input("Username: ")
-			form_data[auth_elements['password']] = getpass.getpass()
+			form_data['u'] = input("Username: ")
+			form_data['p'] = getpass.getpass()
 			
 			# POST the form data
 			r = self._session.post(target, data=form_data)
-			
-			# Failed logins will return 200 and stay on the login page
-			if r.url == target:
-				raise PermissionError("Failed to redirect after login.")
-			
-			# We've redirected, so the auth may have worked...
-			if r.url != target and len(r.history) > 0:
-			
-				# Check the cookies to see if we have valid credentials
+
+			# Successfully authenticated
+			if r.status_code == 200 and "1" in r.text:
+
+				# Redirect to the logged in page
+				r = self._session.get(redirect)
+
+				# Retrieve the cookies and ensure we have valid credentials
 				c = self._session.cookies.get_dict()
 				if 'cuuser' in c and 'cupass' in c:
 					self.__NGAcookie = self._session.cookies
