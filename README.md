@@ -15,6 +15,7 @@ On the first execution of `genusCheck.py`, it will check for two files - an NGA 
 
 - Python 3 with the following modules
   - Beautiful Soup 4 (bs4)
+  - lxml (for BS4 parser)
   - Levenshtein (python-levenshtein)
   - requests
 
