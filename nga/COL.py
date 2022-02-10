@@ -106,12 +106,12 @@ class COL(GBIF):
 		try:
 			r = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
 		except requests.exceptions.RequestException as e:
-			return (None, 'Unable to retrieve taxon.')
+			return [None, 'Error retrieving taxon: %s' % search_term]
 		else:
 			rdata = r.json()
 			if rdata['empty']:
 				# No match found
-				return None
+				return [None, 'No match for %s found.' % search_term]
 
 			# Closest match is the first entry
 			closest = rdata['result'][0]
@@ -125,14 +125,14 @@ class COL(GBIF):
 				try:
 					r = self._session.get(self._synonym_url % (datasetKey, taxonID), auth=self._auth, headers={"Content-Type": "application/json"})
 				except requests.exceptions.RequestException as e:
-					return (None, 'Unable to retrieve synonyms.')
+					return [None, 'Unable to retrieve synonyms for %s.' % search_term]
 				else:
 					synonyms = []
 					rdata = r.json()
 
 					# Check if there are any synonyms
 					if not rdata:
-						return None
+						return [None, 'No synonyms available for %s.' % search_term]
 
 					# Iterate through the types of synonyms and collect the botanical names
 					for synonym_type in rdata:
@@ -151,9 +151,9 @@ class COL(GBIF):
 				elif 'synonym' in status:
 					acceptedname = usage['accepted']['name']
 				else:
-					return None
+					return [None, 'No accepted or synonym name available for %s.' % search_term]
 
-				return acceptedname['scientificName']
+				return [acceptedname['scientificName']]
 
 
 class DCA(GBIF):
