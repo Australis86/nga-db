@@ -309,6 +309,9 @@ class DCA(GBIF):
 					for t in tables:
 						commands.append('.import "%s/%s" %s' % (genus, t[0], t[1]))
 
+					stdout.write('done.\r\nBuilding database... ')
+					stdout.flush()
+
 					# Create the temporary SQL file (based on provided SQLite import script)
 					sqlcat = os.path.join(tmpdir, 'sqlite3init.cat')
 					cf = open(sqlcat, 'w')
@@ -336,7 +339,7 @@ class DCA(GBIF):
 					for t in tables:
 						tname = os.path.join(gpath, t[0])
 						with open(tname, 'r', encoding='utf-8-sig') as f:
-							reader = csv.reader(f, dialect=csv.excel_tab)
+							reader = csv.reader(f, dialect=csv.excel_tab, quoting=csv.QUOTE_NONE)
 
 							# Get the column names from the header row
 							columns = next(reader)
