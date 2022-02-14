@@ -207,6 +207,7 @@ class DCA(GBIF):
 			return (None, 'Unable to retrieve taxon ID.')
 		else:
 			rdata = r.json()
+
 			if 'total' in rdata and rdata['total'] == 0:
 				return (None, 'No matches found in COL search.')
 
@@ -214,7 +215,7 @@ class DCA(GBIF):
 			datasetKey = rdata['result'][0]['usage']['datasetKey']
 
 			# Prepare the export data
-			data = {"format":"DWCA", "taxonID":taxonID, "synonyms": True}
+			data = {"format":"DWCA", "root":{"id":taxonID}, "synonyms": True}
 
 			# Post to the asynchronous API (this requests a build of an export)
 			try:
