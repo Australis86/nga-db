@@ -171,7 +171,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		if dca_db is not None:
 			# Prepare the SQL query
 			if fn == 2:
-				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE genericName=? AND specificEpithet=? AND taxonRank='SPECIES' AND (infraspecificEpithet='' OR infraspecificEpithet IS NULL) GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
+				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE genericName=? AND specificEpithet=? AND upper(taxonRank)='SPECIES' AND (infraspecificEpithet='' OR infraspecificEpithet IS NULL) GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
 				params = (fields[0], fields[1])
 			elif fn == 4:
 				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID  WHERE genericName=? AND specificEpithet=? AND taxonRank=? AND infraspecificEpithet=? GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
@@ -413,7 +413,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 	if dca_db is not None:
 		# Check for missing accepted names
-		sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN taxonRank='FORM' THEN 'f.' WHEN taxonRank='VARIETY' THEN 'var.' WHEN taxonRank='SUBSPECIES' THEN 'subsp.' ELSE '' END || ' ' || infraspecificEpithet as epithet, locality, taxonRemarks from Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE taxonomicStatus='ACCEPTED' AND specificEpithet!='' GROUP BY epithet"
+		sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' ELSE '' END || ' ' || infraspecificEpithet as epithet, locality, taxonRemarks from Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE upper(taxonomicStatus)='ACCEPTED' AND specificEpithet!='' GROUP BY epithet"
 		cur.execute(sql)
 		rows = cur.fetchall()
 
