@@ -109,11 +109,11 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 	# Create objects for future use
 	COLengine = nga.COL.COL()
-	KEWengine = nga.KEW.WCSP()
 
 	# Check if genus is a hybrid genus or not
 	hybrid_genus = False
 	if orchid_extensions:
+		KEWengine = nga.KEW.WCSP()
 		genus_info = KEWengine.nameSearch(genus)
 		if genus_info['hybrid']:
 			if genus_info['parentage'] is not None:
@@ -373,7 +373,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				matched = False
 
 				# Get the list of taxa
-				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || taxonRank || ' ' || infraspecificEpithet as epithet from Taxon GROUP BY epithet"
+				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' ELSE '' END || ' ' || infraspecificEpithet as epithet from Taxon GROUP BY epithet"
 				cur.execute(sql)
 
 				# Iterate through the names and compare to the entry from the NGA`
