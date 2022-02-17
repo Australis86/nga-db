@@ -79,8 +79,7 @@ class NGA:
 			# Try to read the JSON string and set the cookie parameters
 			try:
 				c = json.load(fd)
-				self.__NGAcookie.set('cuuser', c['cuuser'], domain='garden.org', path='/')
-				self.__NGAcookie.set('cupass', c['cupass'], domain='garden.org', path='/')
+				self.__NGAcookie.set('gojwt', c['gojwt'], domain='garden.org', path='/')
 
 			except Exception as err:
 				# We must have a valid cookie file, or the NGA site will block us`
