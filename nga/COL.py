@@ -13,6 +13,7 @@ __licence__ = "GNU Lesser General Public License v3.0"
 # Module imports
 import csv
 import os
+import sys
 import json
 import requests
 import re
@@ -378,6 +379,12 @@ class DCA(GBIF):
 			stdout.write('failed with the following error:\r\n')
 			stdout.flush()
 			print(errmsg)
+			if os.path.exists(fpath):
+				print("Using old dataset - entries may be out of date!")
+			else:
+				print("Unable to continue without COL DWA dataset.")
+				sys.exit(1)
+
 		return None
 
 

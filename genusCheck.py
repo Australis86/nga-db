@@ -685,6 +685,25 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 			"CN = Has the genus as the common name", os.linesep,
 			"MC = Missing a common name", os.linesep)
 
+		# Iterate through the list first to see if there are any name updates that result in merging of plants
+		reassignments = {}
+		merges_req = False
+
+		for botanical_name in entries:
+			botanical_entry = nga_dataset[botanical_name]
+
+			# Iterate through the selected clones of this botanical entry
+			for selection_name in botanical_entry:
+				selection_entry = botanical_entry[selection_name]
+
+				if 'changed' in selection_entry and selection_entry['changed']:
+					new_bot_name = selection_entry['new_bot_name']
+					if new_bot_name not in reassignments:
+						reassignments[new_bot_name] = [botanical_name]
+					elif botanical_name not in reassignments[new_bot_name]:
+						reassignments[new_bot_name].append(botanical_name)
+						merges_req = True
+
 		for botanical_name in entries:
 			botanical_entry = nga_dataset[botanical_name]
 
@@ -720,6 +739,8 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 						msg = ''
 						if 'duplicate' in selection_entry and selection_entry['duplicate']:
 							msg = "(New name already exists in NGA database)"
+						elif len(reassignments[selection_entry['new_bot_name']]) > 1:
+							msg = "(Multiple names reassigned to this taxon)"
 						else:
 							update_selected_name = True
 						print('    ', botanical_name, '->', selection_entry['new_bot_name'], msg)
@@ -741,6 +762,12 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 					if update_selected_data:
 						nga_db.proposeDataUpdate(selection_entry)
 
+	# Highlight plants to manually reassign/merge
+	if merges_req:
+		print("\nThese entries will need to be manually merged:")
+		for new_name in reassignments:
+			if len(reassignments[new_name]) > 1:
+				print('    ', ', '.join(reassignments[new_name]), '->', new_name)
 
 	# Add any missing accepted names
 	if len(additions) > 0:
