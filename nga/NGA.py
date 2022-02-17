@@ -159,7 +159,7 @@ class NGA:
 
 				# Retrieve the cookies and ensure we have valid credentials
 				c = self._session.cookies.get_dict()
-				if 'cuuser' in c and 'cupass' in c:
+				if 'gojwt' in c:
 					self.__NGAcookie = self._session.cookies
 					self.__storeCookieArchive(c)
 					print("Successfully authenticated.")
