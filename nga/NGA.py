@@ -557,8 +557,7 @@ class NGA:
 
 		# The COL search results is applicable to both the DCA export data
 		# and the COL search in this case, so no need to make it editable yet
-		COL_URL = 'http://www.catalogueoflife.org/col/search/all/key/%s/fossil/0/match/1' % botanic_name.split()[0]
-
+		COL_URL = 'https://www.catalogueoflife.org/data/search?facet=rank&facet=issue&facet=status&facet=nomStatus&facet=nameType&facet=field&facet=authorship&facet=extinct&facet=environment&limit=50&offset=0&q=%s&sortBy=taxonomic' % botanic_name.split()[0]
 
 		if common_name is None:
 			common_name = ''
