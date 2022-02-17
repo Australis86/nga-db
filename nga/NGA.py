@@ -330,21 +330,23 @@ class NGA:
 				for pg in pages:
 					pgnum = pg.text
 					pgurl = urlparse(pg['href']) # Parse the URL
-					pgoffset = parse_qs(pgurl.query)['offset'][0] # Extract the offset
+					pgquery = parse_qs(pgurl.query)
+					if 'offset' in pgquery:
+						pgoffset = pgquery['offset'][0] # Extract the offset
 
-					try:
-						# Extract the offset (based on the link to page 2)
-						num = int(pgnum)
-						offset = int(pgoffset)
-						if num == 2:
-							increment = offset
+						try:
+							# Extract the offset (based on the link to page 2)
+							num = int(pgnum)
+							offset = int(pgoffset)
+							if num == 2:
+								increment = offset
 
-						# Get the number of pages (look for the highest number)
-						if num > npages:
-							npages = num
+							# Get the number of pages (look for the highest number)
+							if num > npages:
+								npages = num
 
-					except ValueError as e:
-						pass
+						except ValueError as e:
+							pass
 
 			# If increment is still None at this stage, then there is only one page
 			# Otherwise fetch all the remaining pages
