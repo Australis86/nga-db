@@ -674,6 +674,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 		additions = []
 
 	# Check if there are NGA entries
+	merges_req = False
 	if len(entries) > 0:
 
 		# Work through existing entries first
@@ -687,7 +688,6 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 		# Iterate through the list first to see if there are any name updates that result in merging of plants
 		reassignments = {}
-		merges_req = False
 
 		for botanical_name in entries:
 			botanical_entry = nga_dataset[botanical_name]
