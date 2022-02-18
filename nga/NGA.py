@@ -34,7 +34,7 @@ class NGA:
 		self._session = requests.Session()
 
 		# Requests user agent has been blocked by Garden.org, unfortunately
-		self._session.headers.update({'User-Agent':'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:57.0) Gecko/20100101 Firefox/57.0'})
+		self._session.headers.update({'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:97.0) Gecko/20100101 Firefox/97.0'})
 
 
 	def __init__(self):
