@@ -138,7 +138,13 @@ class COL(GBIF):
 					# Iterate through the types of synonyms and collect the botanical names
 					for synonym_type in rdata:
 						for synonym in rdata[synonym_type]:
-							synonyms.append(synonym[0]['scientificName'])
+							# This will be a list for synonyms, dict for misapplied names
+							try:
+								s = synonym[0]
+								if 'misapplied' not in s['status'].lower():
+									synonyms.append(s['scientificName'])
+							except Exception as err:
+								pass
 
 					synonyms.sort()
 					return synonyms

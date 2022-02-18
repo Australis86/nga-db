@@ -466,7 +466,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				synonyms = COLengine.search(entry, True)
 				synonym_entries = {}
 
-				if synonyms[0] is not None:
+				if len(synonyms) > 0 and synonyms[0] is not None:
 					for synonym in synonyms:
 						dataset = nga_db.search(synonym)
 						if dataset is not None and synonym in dataset:
