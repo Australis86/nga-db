@@ -16,6 +16,7 @@ __licence__ = "GNU Lesser General Public License v3.0"
 
 # Module imports
 import os
+import sys
 import json
 import re
 import requests
@@ -298,7 +299,8 @@ class NGA:
 		try:
 			r = self._session.get(self._genus_url % genus, params=params)
 		except requests.exceptions.RequestException as e:
-			print("Error retrieving NGA database page for genus %s." % genus)
+			print("\nError retrieving NGA database page for genus %s. Cannot continue." % genus)
+			sys.exit(1)
 		else:
 			# Parse the returned HTML
 			soup = BeautifulSoup(r.text, "lxml")

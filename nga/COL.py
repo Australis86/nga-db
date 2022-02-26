@@ -74,7 +74,7 @@ class GBIF:
 		pwd = getpass.getpass()
 
 		# Test the credentials
-		r = requests.get("https://api.catalogueoflife.org/user/me", auth=HTTPBasicAuth(user, pwd), headers={'accept': 'application/json'})
+		r = requests.get("https://api.checklistbank.org/user/me", auth=HTTPBasicAuth(user, pwd), headers={'accept': 'application/json'})
 		if r.status_code != 200:
 			raise PermissionError("Failed to authenticate with the COL API.")
 		else:
@@ -93,8 +93,8 @@ class COL(GBIF):
 		"""Create an instance and set up a requests session to the COL API."""
 
 		GBIF.__init__(self)
-		self._search_url = 'https://api.catalogueoflife.org/dataset/3LR/nameusage/search'
-		self._synonym_url = 'https://api.catalogueoflife.org/dataset/%s/taxon/%s/synonyms'
+		self._search_url = 'https://api.checklistbank.org/dataset/3LR/nameusage/search'
+		self._synonym_url = 'https://api.checklistbank.org/dataset/%s/taxon/%s/synonyms'
 
 
 	def search(self, search_term, fetchSynonyms=False):
@@ -114,8 +114,15 @@ class COL(GBIF):
 				# No match found
 				return [None, 'No match for %s found.' % search_term]
 
-			# Closest match is the first entry
-			closest = rdata['result'][0]
+			# Exclude illegal or ambiguous names
+			if len(rdata['result']) > 0:
+				for result in rdata['result']:
+					rstatus = result['usage']['status'].lower()
+					if ('misapplied' not in rstatus) and ('ambiguous' not in rstatus):
+						closest = result
+						break
+			else:
+				closest = rdata['result'][0]
 
 			if fetchSynonyms:
 				# Get the taxon ID so that we can get the synonyms
@@ -137,6 +144,7 @@ class COL(GBIF):
 
 					# Iterate through the types of synonyms and collect the botanical names
 					for synonym_type in rdata:
+						print(rdata)
 						for synonym in rdata[synonym_type]:
 							# This will be a list for synonyms, dict for misapplied names
 							try:
@@ -169,9 +177,9 @@ class DCA(GBIF):
 		"""Create an instance and set up a requests session to the COL API."""
 
 		GBIF.__init__(self)
-		self._search_url = 'https://api.catalogueoflife.org/dataset/3LR/nameusage/search'
-		self._export_request_url = 'https://api.catalogueoflife.org/dataset/%s/export'
-		self._export_retrieve_url = 'https://api.catalogueoflife.org/export/%s'
+		self._search_url = 'https://api.checklistbank.org/dataset/3LR/nameusage/search'
+		self._export_request_url = 'https://api.checklistbank.org/dataset/%s/export'
+		self._export_retrieve_url = 'https://api.checklistbank.org/export/%s'
 		self.__cache = None
 		self.__cache_age = datetime.now() - timedelta(days=5) # Default value
 
