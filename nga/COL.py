@@ -144,7 +144,6 @@ class COL(GBIF):
 
 					# Iterate through the types of synonyms and collect the botanical names
 					for synonym_type in rdata:
-						print(rdata)
 						for synonym in rdata[synonym_type]:
 							# This will be a list for synonyms, dict for misapplied names
 							try:
