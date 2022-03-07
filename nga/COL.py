@@ -116,6 +116,7 @@ class COL(GBIF):
 
 			# Exclude illegal or ambiguous names
 			if len(rdata['result']) > 0:
+				closest = None
 				for result in rdata['result']:
 					rstatus = result['usage']['status'].lower()
 					if ('misapplied' not in rstatus) and ('ambiguous' not in rstatus):
@@ -158,8 +159,12 @@ class COL(GBIF):
 
 			else:
 				# If we don't need the synonyms, then everything we need is in this result dataset
-				usage = closest['usage']
-				status = usage['status'].lower()
+				if closest is not None:
+					usage = closest['usage']
+					status = usage['status'].lower()
+				else:
+					status = ''
+
 				if 'accepted' in status:
 					acceptedname = usage['name']
 				elif 'synonym' in status:
