@@ -784,6 +784,8 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 			else:
 				sys.stdout.write(' done. %d found.\r\n' % len(pending.keys()))
 				sys.stdout.flush()
+		else:
+			pending = None
 
 		print("\nAccepted names missing from database:")
 
