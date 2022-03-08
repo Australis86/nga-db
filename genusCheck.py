@@ -47,8 +47,6 @@ def initMenu():
 	parser.add_argument("--parentage", help="check the parentage fields for hybrids",
 		action="store_true", default=False)
 
-	# TO DO: Add functionality for authenticating with the NGA website
-
 	return parser.parse_args()
 
 
@@ -303,6 +301,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			# Not accepted - this entry is a synonym
 			elif 'synonym' in status:
 				# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
+				# Note that the species entry will have a cultivar name of ''
 				(new_bot_name, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, nga_hyb)
 
 				if new_bot_name is not None:
@@ -396,6 +395,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 						nga_dataset[full_name][cultivar]['rename'] = True
 						nga_dataset[full_name][cultivar]['changed'] = True
 						# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
+						# Note that the species entry will have a cultivar name of ''
 						nga_dataset[full_name][cultivar]['duplicate'] = closest_match in entries # Ensure that the correct spelling doesn't already exist
 						nga_dataset[full_name][cultivar]['warning'] = search_name != botanical_name # We only want to warn/notify in this case
 						nga_dataset[full_name][cultivar]['warning_desc'] = 'Misspelt in NGA database'
@@ -745,7 +745,9 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							msg = "(Multiple names reassigned to this taxon)"
 						else:
 							update_selected_name = True
-						print('    ', botanical_name, '->', selection_entry['new_bot_name'], msg)
+							print('    ', botanical_name, '->', selection_entry['new_bot_name'], msg)
+							if selection_entry['new_bot_name'] in reassignments:
+								del reassignments[selection_entry['new_bot_name']]
 
 				# Warn only if it's not a natural hybrid or might be a natural hybrid
 				elif 'not_nat_hybrid' in selection_entry and selection_entry['not_nat_hybrid']:
@@ -766,10 +768,9 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 	# Highlight plants to manually reassign/merge
 	if merges_req:
-		print("\nThese entries will need to be manually merged:")
+		print("\nThese entries will need to be manually merged (synonym -> accepted name):")
 		for new_name in reassignments:
-			if len(reassignments[new_name]) > 1:
-				print('    ', ', '.join(reassignments[new_name]), '->', new_name)
+			print('    ', ', '.join(reassignments[new_name]), '->', new_name)
 
 	# Add any missing accepted names
 	if len(additions) > 0:

@@ -488,6 +488,13 @@ class NGA:
 		return None
 
 
+	def checkPageFields(self, plant):
+		"""Check which fields are populated on a plant database entry. Useful for determining if we can automatically merge entries."""
+
+		# TO DO: Actually write this function
+		pass
+
+
 	def checkParentageField(self, plant, recursed=False):
 		"""Check if the parentage field exists for an entry."""
 
