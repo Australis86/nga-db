@@ -132,7 +132,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		conn = sqlite3.connect(dca_db)
 		cur = conn.cursor()
 
-	# Iterate through the botanical names
+	# Iterate through the botanical names from the NGA database
 	bn = len(entries)
 	x = 0
 
@@ -201,7 +201,6 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 			# Name is accepted
 			if 'accepted' in status:
-				#print("Accepted",botanical_name)
 				non_hyb_name = full_name.replace(' x ',' ')
 
 				# Check if this is listed as a hybrid by the COL
@@ -301,9 +300,9 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				for cultivar in nga_dataset[full_name]:
 					nga_dataset[full_name][cultivar]['accepted'] = True
 
-			# Not accepted
+			# Not accepted - this entry is a synonym
 			elif 'synonym' in status:
-				#print("Synonym",botanical_name)
+				# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
 				(new_bot_name, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, nga_hyb)
 
 				if new_bot_name is not None:
@@ -315,7 +314,6 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 			# Illegal name?
 			else:
-				#print("Illegal",botanical_name)
 				for cultivar in nga_dataset[full_name]:
 					nga_dataset[botanical_name][cultivar]['warning'] = True # Default value
 					nga_dataset[botanical_name][cultivar]['warning_desc'] = 'Illegal taxonomical name'
@@ -397,6 +395,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 						nga_dataset[full_name][cultivar]['new_bot_name'] = closest_match
 						nga_dataset[full_name][cultivar]['rename'] = True
 						nga_dataset[full_name][cultivar]['changed'] = True
+						# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
 						nga_dataset[full_name][cultivar]['duplicate'] = closest_match in entries # Ensure that the correct spelling doesn't already exist
 						nga_dataset[full_name][cultivar]['warning'] = search_name != botanical_name # We only want to warn/notify in this case
 						nga_dataset[full_name][cultivar]['warning_desc'] = 'Misspelt in NGA database'
@@ -649,6 +648,7 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 	# Compare datasets
 	nga_dataset = checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db, orchid_extensions)
 
+	# For orchids only - check the RHS Orchid Register
 	if orchid_extensions and len(genera) > 0:
 		nga_dataset = checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check)
 
@@ -659,7 +659,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 	"""Display the pending changes to the NGA database and implement them if allowed."""
 
 	# Hybrids will be stored under the genera, whilst species will have their own entries
-	entries = list(set(list(nga_dataset.keys())))
+	entries = list(set(list(nga_dataset.keys()))) # This gets all the botanical names
 	entries.sort()
 
 	# Set aside hybrids
