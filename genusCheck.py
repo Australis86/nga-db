@@ -778,7 +778,9 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 			sys.stdout.flush()
 			pending = nga_db.fetchNewProposals()
 			if pending is None:
-				print("\nUnable to retrieve new plant proposals - you may not have mod rights.")
+				print("\nUnable to retrieve new plant proposals - either an error occurred or you may not have mod rights.")
+				if propose:
+					sys.exit(1)
 			else:
 				sys.stdout.write(' done. %d found.\r\n' % len(pending.keys()))
 				sys.stdout.flush()
