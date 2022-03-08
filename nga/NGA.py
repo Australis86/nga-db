@@ -50,6 +50,7 @@ class NGA:
 		self._new_plant_url = 'https://garden.org/plants/propose/new_plant/'
 		self._new_proposals_url = 'https://garden.org/plants/mod/plants/'
 		self._new_approvals_url = 'https://garden.org/plants/mod/plants/approve/'
+		self._merge_plant_url = 'https://garden.org/plants/propose/merge_plant/%s/'
 
 		# Set the path to the NGA cookie
 		if 'NGA_COOKIE' in globals():
@@ -491,8 +492,40 @@ class NGA:
 	def checkPageFields(self, plant):
 		"""Check which fields are populated on a plant database entry. Useful for determining if we can automatically merge entries."""
 
-		# TO DO: Actually write this function
-		pass
+		planturl = urljoin(self._home_url, plant['url'])
+
+		try:
+			r = self._session.get(planturl)
+		except requests.exceptions.RequestException as e:
+			print("Error retrieving NGA plant entry for %s." % plant['full_name'])
+			print(str(e))
+			return None
+		else:
+			# Storage for relevant fields
+			fields = {
+				'cards': [],
+				'databoxes': [],
+			}
+
+			# Parse the returned HTML
+			soup = BeautifulSoup(r.text, "lxml")
+
+			# Look for class "card-header", as this is used for the common names, botanical names, conservation status, images and comments
+			cards = soup.findAll('div', {'class':'card-header'})
+			if len(cards) > 0:
+				for card in cards:
+					contents = card.get_text().strip().strip(':')
+					# TO DO: Exclude photo gallery and comments here, since they are migrated by the merge but the other sections are not
+					fields['cards'].append(contents)
+
+			# Look for the caption element, as this indicates data tables
+			captions = soup.findAll('caption')
+			if len(captions) > 0:
+				for caption in captions:
+					contents = caption.get_text().strip().split(' (')[0]
+					fields['databoxes'].append(contents)
+
+			return(fields)
 
 
 	def checkParentageField(self, plant, recursed=False):
@@ -652,6 +685,24 @@ class NGA:
 
 		# POST the data
 		self.__submitProposal(self._new_plant_url, params)
+
+
+	def proposeMerge(self, old_plant, new_plant, auto_approve=False):
+		"""Propose the merge of the old plant into the new plant. Ensures that the 
+		name of the old plant is copied across to the new one as a synonym."""
+
+		#print("Old entry:", old_plant)
+		#print("New entry:", new_plant)
+
+		# TO DO:
+		# 1. Add old_plant['full_name'] to the new_plant entry as a synonym 
+		# UNLESS it is a misspelling (check for the existence of old_plant['rename'])
+		# 2. If step one is successful, POST to self._merge_plant_url % old_plant['pid']
+		# with data = {'newpid': new_plant['pid'], 'submit':'Submit the proposal'}
+		# 3. If auto_approve is True, approve the merge
+
+		pass
+
 
 
 	def proposeNameChange(self, plant, common_name=None, auto_approve=True):

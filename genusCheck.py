@@ -766,11 +766,60 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 					if update_selected_data:
 						nga_db.proposeDataUpdate(selection_entry)
 
-	# Highlight plants to manually reassign/merge
+	# Highlight plants to combine/merge
 	if merges_req:
-		print("\nThese entries will need to be manually merged (synonym -> accepted name):")
+		print("\nThese entries will need to be merged (synonym -> accepted name):\n M = Manual merge required\n")
 		for new_name in reassignments:
-			print('    ', ', '.join(reassignments[new_name]), '->', new_name)
+			manual_merge = False
+			merges = []
+
+			if new_name not in nga_dataset:
+				# This indicates we have multiple names being assigned to a new name, but the new name doesn't exist yet in the database
+				# Need to handle this differently
+				manual_merge = True
+			else:
+				new_taxon = nga_dataset[new_name]
+				botanical_taxon = new_taxon['']
+				botanical_pid = botanical_taxon['pid']
+
+				# Iterate through the names that need to be updated
+				for botanical_name in reassignments[new_name]:
+					botanical_entry = nga_dataset[botanical_name]
+
+					# Iterate through the selections for this taxon
+					for selection_name in botanical_entry:
+						if len(selection_name) > 0:
+							# If this is a named selection, we need to check if it also exists with the new name
+							if selection_name in new_taxon:
+								cultivar = new_taxon[selection_name]
+								cultivar_pid = cultivar['pid']
+							else:
+								# TO DO: Just need to rename the existing cultivar
+								manual_merge = True
+								break
+						else:
+							cultivar = botanical_taxon
+							cultivar_pid = botanical_pid
+
+						# Fetch the selection and its database plant id (pid)
+						selection_entry = botanical_entry[selection_name]
+						selection_pid = selection_entry['pid']
+						datafields = nga_db.checkPageFields(selection_entry)
+
+						# If the plant to be merged has datafields or its pid takes precedence over the target pid, flag that this needs to be resolved manually
+						if len(datafields['cards']) > 0 or len(datafields['databoxes']) > 0 or selection_pid < cultivar_pid:
+							manual_merge = True
+						else:
+							merges.append({'old':selection_entry, 'new':cultivar})
+
+			if manual_merge:
+				print('M   ', ', '.join(reassignments[new_name]), '->', new_name)
+			else:
+				print('    ', ', '.join(reassignments[new_name]), '->', new_name)
+
+				# TO DO: Add check for proposal flag here
+				for merge in merges:
+					nga_db.proposeMerge(merge['old'], merge['new'])
 
 	# Add any missing accepted names
 	if len(additions) > 0:
