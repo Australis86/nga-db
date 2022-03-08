@@ -48,6 +48,8 @@ class NGA:
 		self._plant_name_url = 'https://garden.org/plants/propose/edit_name/%s/'
 		self._plant_data_url = 'https://garden.org/plants/propose/databox/%s/'
 		self._new_plant_url = 'https://garden.org/plants/propose/new_plant/'
+		self._new_proposals_url = 'https://garden.org/plants/mod/plants/'
+		self._new_approvals_url = 'https://garden.org/plants/mod/plants/approve/'
 
 		# Set the path to the NGA cookie
 		if 'NGA_COOKIE' in globals():
@@ -551,6 +553,74 @@ class NGA:
 				print("\tFailed to submit proposal - name already in use.")
 			else:
 				print("\tFailed to submit proposal.")
+
+
+	def fetchNewProposals(self):
+		"""Check to see if a new plant proposal exists. Requires admin rights."""
+
+		try:
+			r = self._session.get(self._new_proposals_url)
+		except requests.exceptions.RequestException as e:
+			print(str(e))
+			return None
+		else:
+			soup = BeautifulSoup(r.text, "lxml")
+			ptable = soup.find("table", {"id":"table"})
+			proposals = soup.findAll('tr')
+			pending = {}
+
+			for p in proposals:
+				if p.find("th") is not None:
+					continue
+
+				cells = p.findAll("td")
+				pid = cells[0].get_text().strip()
+				genus = cells[1].get_text().strip()
+				species = cells[2].get_text().strip()
+				cultivar = cells[3].get_text().strip()
+				tradename = cells[4].get_text().strip()
+				series = cells[5].get_text().strip()
+
+				if len(cultivar) == len(tradename) == len(series) == 0:
+					botanical_name = '%s %s' % (genus, species)
+					if botanical_name not in pending:
+						pending[botanical_name] = []
+
+					pending[botanical_name].append(pid)
+
+			return pending
+
+
+	def checkNewProposal(self, pending, botanic_name, common_name=None):
+		"""Check to see if a new plant proposal exists. Requires admin rights."""
+
+		if pending is not None:
+			if botanic_name in pending:
+				return pending[botanic_name][0]
+
+		return None
+
+
+	def approveNewProposal(self, pid):
+		"""Approve an existing proposal based on id. Requires admin rights."""
+
+		params = {
+			'id':pid
+		}
+
+		try:
+			r = self._session.post(self._new_approvals_url, data=params)
+		except requests.exceptions.RequestException as e:
+			print("\tFailed to approval proposal", str(e))
+		else:
+			# Parse the response
+			soup = BeautifulSoup(r.text, "lxml")
+			approved = soup.findAll('a', attrs={'href': re.compile("/plants/view/")})
+
+			if approved and len(approved) > 0:
+				print("\tProposal approved.")
+			else:
+				print("\tProposal not approved.")
 
 
 	def proposeNewPlant(self, botanic_name, common_name=None):

@@ -31,7 +31,9 @@ def initMenu():
 	parser = argparse.ArgumentParser()
 
 	parser.add_argument("-g", "--genus", help="genus name", required=True)
-	parser.add_argument("-p", "--propose", help="automatically propose changes to the NGA database",
+	parser.add_argument("-e", "--existing", help="check for existing new plant proposals, but do not automatically approval",
+		action="store_true")
+	parser.add_argument("-p", "--propose", help="automatically propose and approve (if possible) changes to the NGA database",
 		action="store_true")
 
 	# The orchid flag and the common name flag conflict, so we add them to a mutually exclusive group
@@ -653,7 +655,7 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 	return (nga_dataset, genera)
 
 
-def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, propose=False):
+def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, propose=False, existing=False):
 	"""Display the pending changes to the NGA database and implement them if allowed."""
 
 	# Hybrids will be stored under the genera, whilst species will have their own entries
@@ -755,7 +757,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				elif selection_entry['warning']:
 					print('W   ', botanical_name, '(%s)' % selection_entry['warning_desc'])
 
-				# Propose changes
+				# Propose name and data changes
 				if propose:
 					if update_selected_name:
 						nga_db.proposeNameChange(selection_entry, common_name)
@@ -771,12 +773,31 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 	# Add any missing accepted names
 	if len(additions) > 0:
+		if propose or existing:
+			sys.stdout.write('\r\nRetrieving any existing new plant proposals...')
+			sys.stdout.flush()
+			pending = nga_db.fetchNewProposals()
+			if pending is None:
+				print("\nUnable to retrieve new plant proposals - you may not have mod rights.")
+			else:
+				sys.stdout.write(' done. %d found.\r\n' % len(pending.keys()))
+				sys.stdout.flush()
+
 		print("\nAccepted names missing from database:")
 
 		for new_name in additions:
-			print("    ",new_name)
+			# Check if there is an existing proposal first
+			pid = nga_db.checkNewProposal(pending, new_name, common_name)
+			if pid is not None:
+				print("    ",new_name,"[proposal %s]" % pid)
+			else:
+				print("    ",new_name)
+
 			if propose:
-				nga_db.proposeNewPlant(new_name, common_name)
+				if pid is not None:
+					nga_db.approveNewProposal(pid)
+				else:
+					nga_db.proposeNewPlant(new_name, common_name)
 
 	# Check hybrids
 	genera_count = len(genera)
@@ -866,7 +887,7 @@ def main(namespace_args):
 		common_name = args.name
 
 	# Display the recommended changes and implement them
-	processDatasetChanges(genera, nga_dataset, nga_db, common_name, args.propose)
+	processDatasetChanges(genera, nga_dataset, nga_db, common_name, args.propose, args.existing)
 
 
 if __name__ == '__main__':
