@@ -119,12 +119,22 @@ class COL(GBIF):
 			if len(rdata['result']) > 0:
 				closest = None
 				for result in rdata['result']:
+					# Need to make sure we're only using entries from the plant kingdom
+					kingdom = False
+					for c in result['classification']:
+						if 'rank' in c and c['rank'] == 'kingdom':
+							if c['name'] == 'Plantae':
+								kingdom = True
+
 					rstatus = result['usage']['status'].lower()
-					if ('misapplied' not in rstatus) and ('ambiguous' not in rstatus):
-						closest = result
-						break
-					elif rstatus not in illegal_status:
-						illegal_status.append(rstatus)
+					if kingdom:
+						if ('misapplied' not in rstatus) and ('ambiguous' not in rstatus):
+							closest = result
+							break
+						elif rstatus not in illegal_status:
+							illegal_status.append(rstatus)
+					else:
+						illegal_status.append('wrong kingdom')
 			else:
 				closest = rdata['result'][0]
 
