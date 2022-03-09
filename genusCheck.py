@@ -738,6 +738,8 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				if 'changed' in selection_entry and selection_entry['changed']:
 					if selection_entry['warning']:
 						print('W   ', botanical_name, '->', selection_entry['new_bot_name'], '(%s)' % selection_entry['warning_desc'])
+						if not ('duplicate' in selection_entry and selection_entry['duplicate']) and selection_entry['new_bot_name'] in reassignments:
+							del reassignments[selection_entry['new_bot_name']]
 					else:
 						msg = ''
 						if 'duplicate' in selection_entry and selection_entry['duplicate']:
@@ -769,7 +771,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 	# Highlight plants to combine/merge
 	if merges_req and len(reassignments.keys()) > 0:
-		print("\nThese entries will need to be merged (synonym -> accepted name):\n M = Manual merge required\n")
+		print("\nThese entries will need to be merged (synonym -> accepted name):\n M = Manual merge required\n W = Warning; entry should not have reached this section of code\n")
 		for new_name in reassignments:
 			manual_merge = False
 			merges = {}
@@ -781,7 +783,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 					manual_merge = True
 				else:
 					# This should have been caught by previous code
-					print('    ', ', '.join(reassignments[new_name]), '->', new_name)
+					print('W   ', ', '.join(reassignments[new_name]), '->', new_name)
 					continue
 			else:
 				new_taxon = nga_dataset[new_name]
