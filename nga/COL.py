@@ -226,12 +226,21 @@ class DCA(GBIF):
 			return (None, 'Unable to retrieve taxon ID.')
 		else:
 			rdata = r.json()
+			taxonID = None
 
 			if 'total' in rdata and rdata['total'] == 0:
 				return (None, 'No matches found in COL search.')
 
-			taxonID = rdata['result'][0]['id']
-			datasetKey = rdata['result'][0]['usage']['datasetKey']
+			for r in rdata['result']:
+				for c in r['classification']:
+					if 'rank' in c and c['rank'] == 'kingdom':
+						if c['name'] == 'Plantae':
+							datasetKey = r['usage']['datasetKey']
+							taxonID = r['id']
+							break
+
+			if taxonID is None:
+				return (None, 'No matches in the Plant kingdom found in COL search.')
 
 			# Prepare the export data
 			data = {"format":"DWCA", "root":{"id":taxonID}, "synonyms": True}

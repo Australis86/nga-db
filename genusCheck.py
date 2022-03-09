@@ -178,7 +178,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				params = (fields[0], fields[1], fields[2], fields[3])
 			else:
 				# Not sure what happened here...
-				print(fields)
+				print(' ', 'Possible invalid taxon:', full_name)
 				break
 
 			# Check the database for a result
@@ -387,9 +387,10 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 						last_ratio = ratio
 						closest_match = nn
 
-				# Only accept nearest match if the ratio is high
-				# Occasionally this can get it wrong!
-				if last_ratio > 0.9:
+				# Only accept nearest match if the ratio is high (note that occasionally this can get it wrong!)
+				# For really short names, allowing a lower ratio as long as there is only 1 character different
+				diffs = sum(1 for a, b in zip(closest_match, search_name) if a != b)
+				if (last_ratio > 0.9) or (last_ratio > 0.8 and diffs < 2):
 					for cultivar in nga_dataset[full_name]:
 						nga_dataset[full_name][cultivar]['new_bot_name'] = closest_match
 						nga_dataset[full_name][cultivar]['rename'] = True
@@ -767,16 +768,21 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 						nga_db.proposeDataUpdate(selection_entry)
 
 	# Highlight plants to combine/merge
-	if merges_req:
+	if merges_req and len(reassignments.keys()) > 0:
 		print("\nThese entries will need to be merged (synonym -> accepted name):\n M = Manual merge required\n")
 		for new_name in reassignments:
 			manual_merge = False
 			merges = {}
 
 			if new_name not in nga_dataset:
-				# This indicates we have multiple names being assigned to a new name, but the new name doesn't exist yet in the database
-				# Need to handle this differently
-				manual_merge = True
+				if len(reassignments[new_name]) > 1:
+					# This indicates we have multiple names being assigned to a new name, but the new name doesn't exist yet in the database
+					# Need to handle this differently
+					manual_merge = True
+				else:
+					# This should have been caught by previous code
+					print('    ', ', '.join(reassignments[new_name]), '->', new_name)
+					continue
 			else:
 				new_taxon = nga_dataset[new_name]
 				botanical_taxon = new_taxon['']
@@ -796,6 +802,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							else:
 								# TO DO: Just need to rename the existing cultivar
 								manual_merge = True
+								print("TO DO: Rename existing cultivar")
 								break
 						else:
 							cultivar_entry = botanical_taxon
@@ -823,6 +830,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							else:
 								# Multiple entries are being combined
 								manual_merge = True
+								print("Multiple entries being combined")
 
 							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'pids_reversed': pids_reversed})
 

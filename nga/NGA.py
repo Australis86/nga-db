@@ -585,9 +585,10 @@ class NGA:
 						return False
 					else:
 						soup = BeautifulSoup(r.text, "lxml")
-						approved = soup.findAll('div', {'class':'alert-success'})
+						approved1 = soup.findAll('div', {'class':'alert-success'}) # Used for approvals via queue
+						approved2 = soup.findAll('a', attrs={'href': re.compile("/plants/view/")}) # Only used for direct path of new plant proposals
 
-						if approved and len(approved) > 0:
+						if (approved1 and len(approved1) > 0) or (approved2 and len(approved2) > 0):
 							print("\tProposal approved.")
 							return True
 						else:
