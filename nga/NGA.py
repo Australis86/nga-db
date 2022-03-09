@@ -554,7 +554,12 @@ class NGA:
 
 
 	def __submitProposal(self, url, data, auto_approve=True):
-		"""Submit a proposal and try to approve it."""
+		"""Submit a proposal and try to approve it.
+
+		Returns:
+			- True if approved
+			- False if submitted but not approved
+			- None otherwise"""
 
 		try:
 			r = self._session.post(url, data=data)
@@ -577,17 +582,20 @@ class NGA:
 					except requests.exceptions.RequestException as e:
 						print("Failed to approve proposal", str(e))
 						print(str(e))
-						return None
+						return False
 					else:
 						soup = BeautifulSoup(r.text, "lxml")
 						approved = soup.findAll('a', attrs={'href': re.compile("/plants/view/")})
 
 						if approved and len(approved) > 0:
 							print("\tProposal approved.")
+							return True
 						else:
 							print("\tProposal not approved.")
+							return False
 				else:
 					print("\tProposal submitted.")
+					return False
 
 			elif alert is not None and len(alert) > 0:
 				print("\tFailed to submit proposal - name already in use.")
@@ -687,22 +695,149 @@ class NGA:
 		self.__submitProposal(self._new_plant_url, params)
 
 
-	def proposeMerge(self, old_plant, new_plant, auto_approve=False):
-		"""Propose the merge of the old plant into the new plant. Ensures that the 
-		name of the old plant is copied across to the new one as a synonym."""
+	def proposeSynonymAddition(self, plant, synonym, common_name=None, auto_approve=True):
+		"""Propose the addition of a synonym to a plant entry in the database.
+				Expects 'plant' to be a dictionary:
+			- new_bot_name = botanical name to add or replace
+			- rename = replace the existing botanical name
+			- pid = plant id
+			- full_name = the full name for the plant (for debug purposes)
+			- common_exclude = list of common names to exclude
 
-		#print("Old entry:", old_plant)
-		#print("New entry:", new_plant)
+		Returns:
+			- True if name exists or proposal approved
+			- False if proposal submitted but not approved
+			- None otherwise"""
 
-		# TO DO:
-		# 1. Add old_plant['full_name'] to the new_plant entry as a synonym 
-		# UNLESS it is a misspelling (check for the existence of old_plant['rename'])
-		# 2. If step one is successful, POST to self._merge_plant_url % old_plant['pid']
-		# with data = {'newpid': new_plant['pid'], 'submit':'Submit the proposal'}
-		# 3. If auto_approve is True, approve the merge
+		# Prepare the url
+		url = self._plant_name_url % plant['pid']
 
-		pass
+		try:
+			r = self._session.get(url)
+		except requests.exceptions.RequestException as e:
+			print("Error retrieving NGA database name page for %s." % plant['full_name'])
+			print(str(e))
+			return None
+		else:
+			# Parse the returned HTML
+			soup = BeautifulSoup(r.text, "lxml")
+			form = soup.find('form', attrs={'method': 'post'})
+			data = OrderedDict() # This is crucial. New fields are processed server-side in the order that they are added.
 
+			# Latin names
+			latin_table = form.find('table', attrs={'id': 'latin-table'})
+			lnames = latin_table.findAll(['input','select'])
+
+			lparams = OrderedDict() # Must be ordered!
+
+			# Iterate through all the botanical names and make sure existing entries are preserved
+			for i in lnames:
+				# Extract the id number for this latin name
+				name = i['name']
+				name_id = re.sub('[^0-9]','',name)
+				if name_id not in lparams:
+					lparams[name_id] = {}
+
+				# Get the latin name
+				if 'status' not in name:
+					lparams[name_id]['latin'] = i['value']
+
+					# Check if the synonym is already present
+					# TO DO: Check for misspellings in future?
+					if synonym in i['value'].strip():
+						# Don't need to continue as the synonym is already there
+						return True
+
+				# Get the current status of the name
+				else:
+					selector = i.findAll('option', selected=True)
+					svalue = selector[0]['value']
+					lparams[name_id]['latin_status'] = svalue
+
+			# Add the new name as a synonym
+			lparams['new'] = {'latin':synonym, 'latin_status':'synonym'}
+
+			# Add the latin names to the object
+			for lp in lparams:
+				if lp == 'new':
+					data['latin[]'] = lparams[lp]['latin']
+					data['latin_status[]'] = lparams[lp]['latin_status']
+				else:
+					data['latin[%s]' % lp] = lparams[lp]['latin']
+					data['latin_status[%s]' % lp] = lparams[lp]['latin_status']
+
+			# Common names
+			common_table = form.find('table', attrs={'id': 'common-table'})
+			cnames = common_table.findAll('input')
+
+			cname_exclude = None
+			if 'common_exclude' in plant:
+				cname_exclude = plant['common_exclude'].strip().lower()
+
+			if len(cnames) < 1:
+				# If there are no common names and one has been provided, add it
+				if common_name is not None:
+					data['common[]'] = common_name
+			else:
+				# Prepare data for common name validation
+				accepted_genus = None
+				common_found = False
+				if common_name is not None:
+					common_lower = common_name.lower()
+				else:
+					common_lower = None
+
+				if accepted_name is not None:
+					accepted_genus = accepted_name.split(' ')[0].strip().lower()
+
+				# Cycle through the existing common names and ensure they are included
+				# (unless they are the genus)
+				for c in cnames:
+					common_tidied = c['value'].strip().lower()
+
+					# Check if the common name is already present
+					if common_lower == common_tidied:
+						common_found = True
+
+					# If the common name isn't the genus, copy it
+					if common_tidied != accepted_genus and common_tidied != cname_exclude:
+						data[c['name']] = c['value']
+
+				# If the provided common name wasn't listed, add it
+				if not common_found and common_name is not None:
+					data['common[]'] = common_name
+
+			# Tradename and series
+			trade_table = form.find('table', attrs={'id': 'tradename-table'})
+			trade_data = trade_table.findAll('input')
+
+			# Copy any existing trade name data
+			for t in trade_data:
+				if t['name'] in 'tradename' and len(t['value'].strip()) < 1 and 'remove_quotes' in plant and plant['remove_quotes']:
+					data[t['name']] = plant['cleaned_name']
+				else:
+					data[t['name']] = t['value']
+
+			# Cultivars
+			cultivar_table = form.find('table', attrs={'id': 'cultivar-table'})
+			cultivars = cultivar_table.findAll('input')
+
+			# Copy any existing cultivars
+			for c in cultivars:
+				data[c['name']] = c['value']
+
+			# Also sold as
+			asa_table = form.find('table', attrs={'id': 'asa-table'})
+			aliases = asa_table.findAll('asa')
+
+			# Copy any existing aliases
+			for a in aliases:
+				data[a['name']] = a['value']
+
+			data['submit'] = 'Submit your proposed changes'
+
+			# POST the data
+			return self.__submitProposal(url, data, auto_approve)
 
 
 	def proposeNameChange(self, plant, common_name=None, auto_approve=True):
@@ -712,7 +847,12 @@ class NGA:
 			- rename = replace the existing botanical name
 			- pid = plant id
 			- full_name = the full name for the plant (for debug purposes)
-			- common_exclude = list of common names to exclude"""
+			- common_exclude = list of common names to exclude
+
+		Returns:
+			- True if name exists or proposal approved
+			- False if proposal submitted but not approved
+			- None otherwise"""
 
 		# Prepare the url
 		url = self._plant_name_url % plant['pid']
@@ -864,7 +1004,7 @@ class NGA:
 			data['submit'] = 'Submit your proposed changes'
 
 			# POST the data
-			self.__submitProposal(url, data, auto_approve)
+			return self.__submitProposal(url, data, auto_approve)
 
 
 	def proposeDataUpdate(self, plant, genus=None):
@@ -930,6 +1070,42 @@ class NGA:
 
 				# POST the data and automatically approve the proposal
 				self.__submitProposal(url, data)
+
+
+	def proposeMerge(self, old_plant, new_plant, reversed=False, auto_approve=False):
+		"""Propose the merge of the old plant into the new plant. Ensures that the
+		name of the old plant is copied across to the new one as a synonym."""
+
+		if reversed:
+			# Update the name of the old plant, since this entry will be kept
+			# This will fix misspellings and set the new accepted name if required
+			name_update = self.proposeNameChange(old_plant, auto_approve=auto_approve)
+		else:
+			if not ('rename' in old_plant and old_plant['rename']):
+				# Update the name of the new entry, adding the old as a synonym
+				name_update = self.proposeSynonymAddition(new_plant, old_plant['full_name'], auto_approve=auto_approve)
+			else:
+				# Old entry is just a misspelling, so we don't need to keep the name
+				name_update = True
+
+		# If the name update was successful or the names are correct, propose the merge
+		if name_update:
+			if reversed:
+				# New entry will be merged into old
+				url = self._merge_plant_url % new_plant['pid']
+				pid = old_plant['pid']
+			else:
+				# Old entry will be merged into new
+				url = self._merge_plant_url % old_plant['pid']
+				pid = new_plant['pid']
+
+			params = {
+				'newpid': pid,
+				'submit':'Submit the proposal'
+			}
+
+			# POST the data
+			self.__submitProposal(url, params, auto_approve=auto_approve)
 
 
 def testModule(cookiepath=None):

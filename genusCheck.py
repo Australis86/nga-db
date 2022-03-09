@@ -771,7 +771,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 		print("\nThese entries will need to be merged (synonym -> accepted name):\n M = Manual merge required\n")
 		for new_name in reassignments:
 			manual_merge = False
-			merges = []
+			merges = {}
 
 			if new_name not in nga_dataset:
 				# This indicates we have multiple names being assigned to a new name, but the new name doesn't exist yet in the database
@@ -798,28 +798,44 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 								manual_merge = True
 								break
 						else:
-							cultivar = botanical_taxon
+							cultivar_entry = botanical_taxon
 							cultivar_pid = botanical_pid
 
 						# Fetch the selection and its database plant id (pid)
 						selection_entry = botanical_entry[selection_name]
 						selection_pid = selection_entry['pid']
-						datafields = nga_db.checkPageFields(selection_entry)
+
+						# Compare PIDs (higher PID gets merged into lower PID)
+						pids_reversed = selection_pid < cultivar_pid
+						
+						if pids_reversed:
+							# Entry with accepted name has higher PID
+							datafields = nga_db.checkPageFields(cultivar_entry)
+						else:
+							datafields = nga_db.checkPageFields(selection_entry)
 
 						# If the plant to be merged has datafields or its pid takes precedence over the target pid, flag that this needs to be resolved manually
-						if len(datafields['cards']) > 0 or len(datafields['databoxes']) > 0 or selection_pid < cultivar_pid:
+						if len(datafields['cards']) > 0 or len(datafields['databoxes']) > 0:
 							manual_merge = True
 						else:
-							merges.append({'old':selection_entry, 'new':cultivar})
+							if cultivar_pid not in merges:
+								merges[cultivar_pid] = []
+							else:
+								# Multiple entries are being combined
+								manual_merge = True
+
+							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'pids_reversed': pids_reversed})
 
 			if manual_merge:
 				print('M   ', ', '.join(reassignments[new_name]), '->', new_name)
 			else:
 				print('    ', ', '.join(reassignments[new_name]), '->', new_name)
 
-				# TO DO: Add check for proposal flag here
-				for merge in merges:
-					nga_db.proposeMerge(merge['old'], merge['new'])
+				if propose:
+					for target_pid in merges:
+						merge = merges[target_pid]
+						for m in merge:
+							nga_db.proposeMerge(m['old'], m['new'], m['pids_reversed'])
 
 	# Add any missing accepted names
 	if len(additions) > 0:
