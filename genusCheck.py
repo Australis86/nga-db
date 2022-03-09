@@ -699,12 +699,12 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				selection_entry = botanical_entry[selection_name]
 
 				if 'changed' in selection_entry and selection_entry['changed']:
+					merges_req = True
 					new_bot_name = selection_entry['new_bot_name']
 					if new_bot_name not in reassignments:
 						reassignments[new_bot_name] = [botanical_name]
 					elif botanical_name not in reassignments[new_bot_name]:
 						reassignments[new_bot_name].append(botanical_name)
-						merges_req = True
 
 		for botanical_name in entries:
 			botanical_entry = nga_dataset[botanical_name]
