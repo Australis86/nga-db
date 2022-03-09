@@ -115,6 +115,7 @@ class COL(GBIF):
 				return [None, 'No match for %s found.' % search_term]
 
 			# Exclude illegal or ambiguous names
+			illegal_status = []
 			if len(rdata['result']) > 0:
 				closest = None
 				for result in rdata['result']:
@@ -122,6 +123,8 @@ class COL(GBIF):
 					if ('misapplied' not in rstatus) and ('ambiguous' not in rstatus):
 						closest = result
 						break
+					elif rstatus not in illegal_status:
+						illegal_status.append(rstatus)
 			else:
 				closest = rdata['result'][0]
 
@@ -170,7 +173,10 @@ class COL(GBIF):
 				elif 'synonym' in status:
 					acceptedname = usage['accepted']['name']
 				else:
-					return [None, 'No accepted or synonym name available for %s.' % search_term]
+					if len(illegal_status) > 0:
+						return [None, '%s has invalid status: %s' % (search_term, '/'.join(illegal_status))]
+					else:
+						return [None, 'No accepted or synonym name available for %s.' % search_term]
 
 				return [acceptedname['scientificName']]
 

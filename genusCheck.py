@@ -59,8 +59,8 @@ def checkSynonym(nga_dataset, search_obj, search_term, nga_hyb_status=None):
 
 	non_hyb_search_term = search_term.replace(' x ',' ')
 	results = search_obj.search(non_hyb_search_term)
-	if results[0] is None:
-		print(' ',results[1])
+	#if results[0] is None:
+	#	print(' ',results[1])
 
 	results = results[0]
 	current_names = nga_dataset.keys()
@@ -298,6 +298,12 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				for cultivar in nga_dataset[full_name]:
 					nga_dataset[full_name][cultivar]['accepted'] = True
 
+			# Misapplied
+			elif 'misapplied' in status or 'ambiguous' in status:
+				for cultivar in nga_dataset[full_name]:
+					nga_dataset[botanical_name][cultivar]['warning'] = True # Default value
+					nga_dataset[botanical_name][cultivar]['warning_desc'] = 'Misapplied or ambiguous name'
+
 			# Not accepted - this entry is a synonym
 			elif 'synonym' in status:
 				# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
@@ -311,11 +317,11 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 					# If it gets to here, then something went badly wrong with the search
 					print("\tWarning: COL search failure -", full_name)
 
-			# Illegal name?
+			# Unknown status
 			else:
 				for cultivar in nga_dataset[full_name]:
 					nga_dataset[botanical_name][cultivar]['warning'] = True # Default value
-					nga_dataset[botanical_name][cultivar]['warning_desc'] = 'Illegal taxonomical name'
+					nga_dataset[botanical_name][cultivar]['warning_desc'] = 'Unknown taxonomic status: %s' % status
 
 		# No match in DCA database or genus has been deprecated
 		else:
@@ -390,7 +396,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				# Only accept nearest match if the ratio is high (note that occasionally this can get it wrong!)
 				# For really short names, allowing a lower ratio as long as there is only 1 character different
 				diffs = sum(1 for a, b in zip(closest_match, search_name) if a != b)
-				if (last_ratio > 0.9) or (last_ratio > 0.8 and diffs < 2):
+				if ((last_ratio > 0.9) or (last_ratio > 0.8 and diffs < 2)) and (closest_match != search_name):
 					for cultivar in nga_dataset[full_name]:
 						nga_dataset[full_name][cultivar]['new_bot_name'] = closest_match
 						nga_dataset[full_name][cultivar]['rename'] = True
@@ -408,7 +414,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			# If we reach this stage, no match has been found at all
 			for cultivar in nga_dataset[full_name]:
 				nga_dataset[full_name][cultivar]['warning'] = True
-				nga_dataset[full_name][cultivar]['warning_desc'] = 'Invalid entry - not in online sources'
+				nga_dataset[full_name][cultivar]['warning_desc'] = 'Not present in online sources'
 
 	sys.stdout.write('\rChecking NGA botanical entries... done.    \r\n')
 	sys.stdout.flush()
@@ -737,7 +743,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				# Check if the botanical name field needs updating
 				if 'changed' in selection_entry and selection_entry['changed']:
 					if selection_entry['warning']:
-						print('W   ', botanical_name, '->', selection_entry['new_bot_name'], '(%s)' % selection_entry['warning_desc'])
+						print('W   ', botanical_name, '->', selection_entry['new_bot_name'], ' (%s)' % selection_entry['warning_desc'])
 						if not ('duplicate' in selection_entry and selection_entry['duplicate']) and selection_entry['new_bot_name'] in reassignments:
 							del reassignments[selection_entry['new_bot_name']]
 					else:
@@ -760,7 +766,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 				# Otherwise print any warnings
 				elif selection_entry['warning']:
-					print('W   ', botanical_name, '(%s)' % selection_entry['warning_desc'])
+					print('W   ', botanical_name, ' (%s)' % selection_entry['warning_desc'])
 
 				# Propose name and data changes
 				if propose:
@@ -832,7 +838,6 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							else:
 								# Multiple entries are being combined
 								manual_merge = True
-								print("Multiple entries being combined")
 
 							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'pids_reversed': pids_reversed})
 
