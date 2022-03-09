@@ -585,7 +585,7 @@ class NGA:
 						return False
 					else:
 						soup = BeautifulSoup(r.text, "lxml")
-						approved = soup.findAll('a', attrs={'href': re.compile("/plants/view/")})
+						approved = soup.findAll('div', {'class':'alert-success'})
 
 						if approved and len(approved) > 0:
 							print("\tProposal approved.")
@@ -780,15 +780,14 @@ class NGA:
 					data['common[]'] = common_name
 			else:
 				# Prepare data for common name validation
-				accepted_genus = None
+				synonym_genus = None
 				common_found = False
 				if common_name is not None:
 					common_lower = common_name.lower()
 				else:
 					common_lower = None
 
-				if accepted_name is not None:
-					accepted_genus = accepted_name.split(' ')[0].strip().lower()
+				synonym_genus = synonym.split(' ')[0].strip().lower()
 
 				# Cycle through the existing common names and ensure they are included
 				# (unless they are the genus)
@@ -800,7 +799,7 @@ class NGA:
 						common_found = True
 
 					# If the common name isn't the genus, copy it
-					if common_tidied != accepted_genus and common_tidied != cname_exclude:
+					if common_tidied != synonym_genus and common_tidied != cname_exclude:
 						data[c['name']] = c['value']
 
 				# If the provided common name wasn't listed, add it
@@ -1072,7 +1071,7 @@ class NGA:
 				self.__submitProposal(url, data)
 
 
-	def proposeMerge(self, old_plant, new_plant, reversed=False, auto_approve=False):
+	def proposeMerge(self, old_plant, new_plant, reversed=False, auto_approve=True):
 		"""Propose the merge of the old plant into the new plant. Ensures that the
 		name of the old plant is copied across to the new one as a synonym."""
 

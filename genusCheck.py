@@ -815,7 +815,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							datafields = nga_db.checkPageFields(selection_entry)
 
 						# If the plant to be merged has datafields or its pid takes precedence over the target pid, flag that this needs to be resolved manually
-						if len(datafields['cards']) > 0 or len(datafields['databoxes']) > 0:
+						if datafields is None or len(datafields['cards']) > 0 or len(datafields['databoxes']) > 0:
 							manual_merge = True
 						else:
 							if cultivar_pid not in merges:
