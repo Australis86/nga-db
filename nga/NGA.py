@@ -1090,6 +1090,10 @@ class NGA:
 
 		# If the name update was successful or the names are correct, propose the merge
 		if name_update:
+			if (new_plant['pid'] == old_plant['pid']):
+				print("Error: Unable to merge a plant with itself.")
+				return
+
 			if reversed:
 				# New entry will be merged into old
 				url = self._merge_plant_url % new_plant['pid']

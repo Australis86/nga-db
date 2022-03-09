@@ -396,7 +396,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				# Only accept nearest match if the ratio is high (note that occasionally this can get it wrong!)
 				# For really short names, allowing a lower ratio as long as there is only 1 character different
 				diffs = sum(1 for a, b in zip(closest_match, search_name) if a != b)
-				if ((last_ratio > 0.9) or (last_ratio > 0.8 and diffs < 2)) and (closest_match != search_name):
+				if ((last_ratio > 0.9) or (last_ratio > 0.8 and diffs < 2 and abs(len(closest_match)-len(search_name)) < 3)) and (closest_match != search_name):
 					for cultivar in nga_dataset[full_name]:
 						nga_dataset[full_name][cultivar]['new_bot_name'] = closest_match
 						nga_dataset[full_name][cultivar]['rename'] = True
@@ -810,7 +810,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							else:
 								# TO DO: Just need to rename the existing cultivar
 								manual_merge = True
-								print("TO DO: Rename existing cultivar")
+								print("TO DO: Rename existing cultivar with name %s" % selection_name)
 								break
 						else:
 							cultivar_entry = botanical_taxon
