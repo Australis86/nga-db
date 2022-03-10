@@ -57,27 +57,29 @@ def checkSynonym(nga_dataset, search_obj, search_term, nga_hyb_status=None):
 	if nga_hyb_status is None:
 		nga_hyb_status = ' x ' in search_term
 
+	msg = None
 	non_hyb_search_term = search_term.replace(' x ',' ')
 	results = search_obj.search(non_hyb_search_term)
-	#if results[0] is None:
-	#	print(' ',results[1])
+	if len(results) > 1:
+		print(' ',non_hyb_search_term,'-',results[1])
+		msg = results[1]
 
-	results = results[0]
+	status = results[0]
 	current_names = nga_dataset.keys()
-	duplicate = results in current_names
+	duplicate = status in current_names
 
 	# Only update if it's not the same and the result is valid
-	if (results != search_term and results != non_hyb_search_term) and results is not None:
+	if (status != search_term and status != non_hyb_search_term) and status is not None:
 		params_st = len(search_term.split())
-		params_an = len(results.split())
+		params_an = len(status.split())
 
 		# Exclude results where the result matches the search term or the search term is only part of the result
-		if params_an > params_st and search_term in results:
-			print("\tWarning: COL may be incomplete --",search_term,'->',results)
+		if params_an > params_st and search_term in status:
+			print("\tWarning: COL may be incomplete --",search_term,'->',status)
 		else:
 			# Update the dictionary
 			for cultivar in nga_dataset[search_term]:
-				nga_dataset[search_term][cultivar]['new_bot_name'] = results
+				nga_dataset[search_term][cultivar]['new_bot_name'] = status
 				nga_dataset[search_term][cultivar]['changed'] = True
 				nga_dataset[search_term][cultivar]['duplicate'] = duplicate
 
@@ -85,7 +87,7 @@ def checkSynonym(nga_dataset, search_obj, search_term, nga_hyb_status=None):
 					nga_dataset[search_term][cultivar]['warning'] = True
 					nga_dataset[search_term][cultivar]['warning_desc'] = 'NGA-listed natural hybrid is now a synonym'
 
-	return (results, duplicate)
+	return (status, msg, duplicate)
 
 
 def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orchid_extensions=False):
@@ -308,14 +310,17 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			elif 'synonym' in status:
 				# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
 				# Note that the species entry will have a cultivar name of ''
-				(new_bot_name, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, nga_hyb)
+				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, nga_hyb)
 
 				if new_bot_name is not None:
 					if not duplicate and new_bot_name not in updated_names:
 						updated_names.append(new_bot_name)
 				else:
 					# If it gets to here, then something went badly wrong with the search
-					print("\tWarning: COL search failure -", full_name)
+					if search_msg is not None:
+						print("\tWarning: COL search failure for %s - %s" % (full_name, search_msg))
+					else:
+						print("\tWarning: COL search failure for %s" % full_name)
 
 			# Unknown status
 			else:
@@ -333,7 +338,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			# Usually we only want to check the COL again if this entry isn't in the genus we're working on
 			# But occasionally entries are missing from the DCA dataset (sigh)
 			#if genus not in full_name:
-			(accepted_name, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, nga_hyb)
+			(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, nga_hyb)
 
 			if accepted_name is not None:
 				if accepted_name != search_name and not duplicate and accepted_name not in updated_names:
@@ -394,7 +399,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 						closest_match = nn
 
 				# Only accept nearest match if the ratio is high (note that occasionally this can get it wrong!)
-				# For really short names, allowing a lower ratio as long as there is only 1 character different
+				# For really short names, allowing a lower ratio as long as there is only 1 character different and 2 in length (accommodates gender changes)
 				diffs = sum(1 for a, b in zip(closest_match, search_name) if a != b)
 				if ((last_ratio > 0.9) or (last_ratio > 0.8 and diffs < 2 and abs(len(closest_match)-len(search_name)) < 3)) and (closest_match != search_name):
 					for cultivar in nga_dataset[full_name]:
@@ -412,9 +417,14 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 					continue
 
 			# If we reach this stage, no match has been found at all
-			for cultivar in nga_dataset[full_name]:
-				nga_dataset[full_name][cultivar]['warning'] = True
-				nga_dataset[full_name][cultivar]['warning_desc'] = 'Not present in online sources'
+			if search_msg is not None:
+				for cultivar in nga_dataset[full_name]:
+					nga_dataset[botanical_name][cultivar]['warning'] = True
+					nga_dataset[botanical_name][cultivar]['warning_desc'] = search_msg
+			else:
+				for cultivar in nga_dataset[full_name]:
+					nga_dataset[full_name][cultivar]['warning'] = True
+					nga_dataset[full_name][cultivar]['warning_desc'] = 'Not present in online sources'
 
 	sys.stdout.write('\rChecking NGA botanical entries... done.    \r\n')
 	sys.stdout.flush()

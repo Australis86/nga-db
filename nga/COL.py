@@ -107,14 +107,13 @@ class COL(GBIF):
 		try:
 			r = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
 		except requests.exceptions.RequestException as e:
-			return [None, 'Error retrieving taxon: %s' % search_term]
+			return [None, 'Error retrieving taxon']
 		else:
 			rdata = r.json()
 			if rdata['empty']:
 				# No match found
-				return [None, 'No match for %s found.' % search_term]
+				return [None, 'No match found']
 
-			# Exclude illegal or ambiguous names
 			illegal_status = []
 			if len(rdata['result']) > 0:
 				closest = None
@@ -128,13 +127,14 @@ class COL(GBIF):
 
 					rstatus = result['usage']['status'].lower()
 					if kingdom:
+						# Exclude illegal or ambiguous names
 						if ('misapplied' not in rstatus) and ('ambiguous' not in rstatus):
 							closest = result
 							break
 						elif rstatus not in illegal_status:
 							illegal_status.append(rstatus)
 					else:
-						illegal_status.append('wrong kingdom')
+						illegal_status.append('not in the plant kingdom')
 			else:
 				closest = rdata['result'][0]
 
@@ -147,14 +147,14 @@ class COL(GBIF):
 				try:
 					r = self._session.get(self._synonym_url % (datasetKey, taxonID), auth=self._auth, headers={"Content-Type": "application/json"})
 				except requests.exceptions.RequestException as e:
-					return [None, 'Unable to retrieve synonyms for %s.' % search_term]
+					return [None, 'Unable to retrieve synonyms']
 				else:
 					synonyms = []
 					rdata = r.json()
 
 					# Check if there are any synonyms
 					if not rdata:
-						return [None, 'No synonyms available for %s.' % search_term]
+						return [None, 'No synonyms available']
 
 					# Iterate through the types of synonyms and collect the botanical names
 					for synonym_type in rdata:
@@ -184,9 +184,9 @@ class COL(GBIF):
 					acceptedname = usage['accepted']['name']
 				else:
 					if len(illegal_status) > 0:
-						return [None, '%s has invalid status: %s' % (search_term, '/'.join(illegal_status))]
+						return [None, 'Invalid status: %s' % ('/'.join(illegal_status))]
 					else:
-						return [None, 'No accepted or synonym name available for %s.' % search_term]
+						return [None, 'No accepted or synonym name available']
 
 				return [acceptedname['scientificName']]
 
