@@ -186,7 +186,7 @@ class NGA:
 		"""Generate a dictionary object to be used for plant entries."""
 
 		# Default plant object assumes no change to common name
-		obj = {'full_name': name, 'url': url, 'pid': None, 'common_name': False, 'warning':False}
+		obj = {'full_name': name.replace('  ',' '), 'url': url, 'pid': None, 'common_name': False, 'warning':False}
 
 		# Extract the plant ID
 		if url is not None:
@@ -257,6 +257,8 @@ class NGA:
 					(botanic_name, cultivar_name, plant_data) = self.__parseTableRow(row, genus)
 
 					if botanic_name is not None:
+						botanic_name = botanic_name.replace('  ',' ')
+
 						# Add entry to results
 						if botanic_name not in self.__genus_results:
 							self.__genus_results[botanic_name] = {}

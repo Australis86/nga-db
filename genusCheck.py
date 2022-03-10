@@ -184,6 +184,10 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			elif fn == 4:
 				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID  WHERE genericName=? AND specificEpithet=? AND taxonRank=? AND infraspecificEpithet=? GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
 				params = (fields[0], fields[1], fields[2], fields[3])
+			elif fn == 3:
+				# Check if it's missing the infraspecific qualifer
+				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID  WHERE genericName=? AND specificEpithet=? AND infraspecificEpithet=? GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
+				params = (fields[0], fields[1], fields[2])
 			else:
 				# Not sure what happened here...
 				print(' ', 'Possible invalid taxon:', full_name)
@@ -388,7 +392,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				matched = False
 
 				# Get the list of taxa
-				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' ELSE '' END || ' ' || infraspecificEpithet as epithet, taxonomicStatus, acceptedNameUsageID from Taxon GROUP BY epithet"
+				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' ELSE 'var.' END || ' ' || infraspecificEpithet as epithet, taxonomicStatus, acceptedNameUsageID from Taxon GROUP BY epithet"
 				cur.execute(sql)
 
 				# Iterate through the names and compare to the entry from the NGA`
@@ -398,7 +402,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				last_ratio = 0
 
 				for row in cur:
-					nn = row[0].strip().replace('  ',' ') # Remove double spaces caused by taxonRank being an empty (e.g. an undefined infraspecific name)
+					nn = row[0].strip()
 					ratio = Levenshtein.ratio(nn, search_name)
 					if ratio > last_ratio:
 						last_ratio = ratio
@@ -410,16 +414,8 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				diffs = sum(1 for a, b in zip(closest_match, search_name) if a != b)
 				gender_change = (last_ratio > 0.8 and diffs < 2 and abs(len(closest_match)-len(search_name)) < 3)
 
-				# Also check if this is an infraspecific name without a proper rank/classifier (eg. variety, form or subspecies)
-				sn = search_name.split()
-				cm = closest_match.split()
-				infraspecific = False
-				if len(sn) == 4 and len(cm) == 3:
-					sn.pop(-2) # Remove the infraspecific rank
-					infraspecific = ' '.join(cm) == ' '.join(sn)
-
 				# Only accept nearest match if the ratio is high (note that occasionally this can get it wrong!)
-				if ((last_ratio > 0.9) or gender_change or infraspecific) and (closest_match != search_name):
+				if ((last_ratio > 0.9) or gender_change) and (closest_match != search_name):
 					if ('accepted' not in closest_status):
 						warning = True
 						warning_msg = 'This is a synonym and is misspelt in the NGA database'
