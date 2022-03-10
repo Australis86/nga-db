@@ -50,7 +50,7 @@ def initMenu():
 	return parser.parse_args()
 
 
-def checkSynonym(nga_dataset, search_obj, search_term, nga_hyb_status=None):
+def checkSynonym(nga_dataset, search_obj, search_term, working_genus, nga_hyb_status=None):
 	"""Check a synonym in a remote database."""
 
 	# Remove the hybrid symbol, as it isn't used by the COL and KEW uses the proper symbol rather than an x
@@ -64,22 +64,28 @@ def checkSynonym(nga_dataset, search_obj, search_term, nga_hyb_status=None):
 		#print(' ',non_hyb_search_term,'-',results[1])
 		msg = results[1]
 
-	status = results[0]
+	retname = results[0]
 	current_names = nga_dataset.keys()
-	duplicate = status in current_names
+	duplicate = False
 
 	# Only update if it's not the same and the result is valid
-	if (status != search_term and status != non_hyb_search_term) and status is not None:
+	if (retname != search_term and retname != non_hyb_search_term) and retname is not None:
+		ret_fields = retname.split()
+		retgenus = ret_fields[0]
 		params_st = len(search_term.split())
-		params_an = len(status.split())
+		params_an = len(ret_fields)
+
+		# TO DO: If this name is not in working_genus and not in current_names, search the NGA
+		# As a temporary workaround, flag it as a duplicate to be on the safe side
+		duplicate = (retname in current_names) or (retgenus != working_genus)
 
 		# Exclude results where the result matches the search term or the search term is only part of the result
-		if params_an > params_st and search_term in status:
-			print("\tWarning: COL may be incomplete --",search_term,'->',status)
+		if params_an > params_st and search_term in retname:
+			print("\tWarning: COL may be incomplete --",search_term,'->',retname)
 		else:
 			# Update the dictionary
 			for cultivar in nga_dataset[search_term]:
-				nga_dataset[search_term][cultivar]['new_bot_name'] = status
+				nga_dataset[search_term][cultivar]['new_bot_name'] = retname
 				nga_dataset[search_term][cultivar]['changed'] = True
 				nga_dataset[search_term][cultivar]['duplicate'] = duplicate
 
@@ -87,7 +93,7 @@ def checkSynonym(nga_dataset, search_obj, search_term, nga_hyb_status=None):
 					nga_dataset[search_term][cultivar]['warning'] = True
 					nga_dataset[search_term][cultivar]['warning_desc'] = 'NGA-listed natural hybrid is now a synonym'
 
-	return (status, msg, duplicate)
+	return (retname, msg, duplicate)
 
 
 def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orchid_extensions=False):
@@ -310,16 +316,9 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			elif 'synonym' in status:
 				# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
 				# Note that the species entry will have a cultivar name of ''
-				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, nga_hyb)
+				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, genus, nga_hyb)
 
 				if new_bot_name is not None:
-					# TO DO: Add a sanity-check here, since if the new name is NOT in the same genus and does not already have a synonym from this genus,
-					# it will not be picked up and so the script will create a duplicate entry. We need to do a search of the NGA database to confirm
-					# that the accepted name doesn't already exist elsewhere.
-					new_genus = new_bot_name.split()[0]
-					if new_genus != genus:
-						print("Warning:", full_name, '->', new_bot_name)
-
 					if not duplicate and new_bot_name not in updated_names:
 						updated_names.append(new_bot_name)
 				else:
@@ -344,8 +343,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 			# Usually we only want to check the COL again if this entry isn't in the genus we're working on
 			# But occasionally entries are missing from the DCA dataset (sigh)
-			#if genus not in full_name:
-			(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, nga_hyb)
+			(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, genus, nga_hyb)
 
 			if accepted_name is not None:
 				if accepted_name != search_name and not duplicate and accepted_name not in updated_names:
