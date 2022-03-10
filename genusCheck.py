@@ -388,34 +388,55 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				matched = False
 
 				# Get the list of taxa
-				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' ELSE '' END || ' ' || infraspecificEpithet as epithet from Taxon GROUP BY epithet"
+				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' ELSE '' END || ' ' || infraspecificEpithet as epithet, taxonomicStatus, acceptedNameUsageID from Taxon GROUP BY epithet"
 				cur.execute(sql)
 
 				# Iterate through the names and compare to the entry from the NGA`
 				closest_match = None
+				closest_status = None
+				closest_id = None
 				last_ratio = 0
 
 				for row in cur:
-					nn = row[0].strip()
+					nn = row[0].strip().replace('  ',' ') # Remove double spaces caused by taxonRank being an empty (e.g. an undefined infraspecific name)
 					ratio = Levenshtein.ratio(nn, search_name)
-
 					if ratio > last_ratio:
 						last_ratio = ratio
 						closest_match = nn
+						closest_status = row[1]
+						closest_id = row[2]
 
-				# Only accept nearest match if the ratio is high (note that occasionally this can get it wrong!)
 				# For really short names, allowing a lower ratio as long as there is only 1 character different and 2 in length (accommodates gender changes)
 				diffs = sum(1 for a, b in zip(closest_match, search_name) if a != b)
-				if ((last_ratio > 0.9) or (last_ratio > 0.8 and diffs < 2 and abs(len(closest_match)-len(search_name)) < 3)) and (closest_match != search_name):
+				gender_change = (last_ratio > 0.8 and diffs < 2 and abs(len(closest_match)-len(search_name)) < 3)
+
+				# Also check if this is an infraspecific name without a proper rank/classifier (eg. variety, form or subspecies)
+				sn = search_name.split()
+				cm = closest_match.split()
+				infraspecific = False
+				if len(sn) == 4 and len(cm) == 3:
+					sn.pop(-2) # Remove the infraspecific rank
+					infraspecific = ' '.join(cm) == ' '.join(sn)
+
+				# Only accept nearest match if the ratio is high (note that occasionally this can get it wrong!)
+				if ((last_ratio > 0.9) or gender_change or infraspecific) and (closest_match != search_name):
+					if ('accepted' not in closest_status):
+						warning = True
+						warning_msg = 'This is a synonym and is misspelt in the NGA database'
+					else: 
+						warning = search_name != botanical_name
+						warning_msg = 'Misspelt accepted name in NGA database'
+					duplicate = closest_match in entries
+
 					for cultivar in nga_dataset[full_name]:
 						nga_dataset[full_name][cultivar]['new_bot_name'] = closest_match
 						nga_dataset[full_name][cultivar]['rename'] = True
 						nga_dataset[full_name][cultivar]['changed'] = True
 						# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
 						# Note that the species entry will have a cultivar name of ''
-						nga_dataset[full_name][cultivar]['duplicate'] = closest_match in entries # Ensure that the correct spelling doesn't already exist
-						nga_dataset[full_name][cultivar]['warning'] = search_name != botanical_name # We only want to warn/notify in this case
-						nga_dataset[full_name][cultivar]['warning_desc'] = 'Misspelt in NGA database'
+						nga_dataset[full_name][cultivar]['duplicate'] = duplicate # Ensure that the correct spelling doesn't already exist
+						nga_dataset[full_name][cultivar]['warning'] = warning # We only want to warn/notify in this case
+						nga_dataset[full_name][cultivar]['warning_desc'] = warning_msg
 						if closest_match not in updated_names:
 							updated_names.append(closest_match)
 
