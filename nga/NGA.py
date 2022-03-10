@@ -604,11 +604,18 @@ class NGA:
 				print("\tFailed to submit proposal.")
 
 
-	def fetchNewProposals(self):
+	def fetchNewProposals(self, recursed=False):
 		"""Check to see if a new plant proposal exists. Requires admin rights."""
 
 		try:
 			r = self._session.get(self._new_proposals_url)
+		except requests.exceptions.ConnectionError as e:
+			if not recursed:
+				time.sleep(1)
+				return self.fetchNewProposals(True)
+			else:
+				print(str(e))
+				return None
 		except requests.exceptions.RequestException as e:
 			print(str(e))
 			return None

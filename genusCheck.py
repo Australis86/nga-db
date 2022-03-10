@@ -313,6 +313,13 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, nga_hyb)
 
 				if new_bot_name is not None:
+					# TO DO: Add a sanity-check here, since if the new name is NOT in the same genus and does not already have a synonym from this genus,
+					# it will not be picked up and so the script will create a duplicate entry. We need to do a search of the NGA database to confirm
+					# that the accepted name doesn't already exist elsewhere.
+					new_genus = new_bot_name.split()[0]
+					if new_genus != genus:
+						print("Warning:", full_name, '->', new_bot_name)
+
 					if not duplicate and new_bot_name not in updated_names:
 						updated_names.append(new_bot_name)
 				else:

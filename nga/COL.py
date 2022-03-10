@@ -162,10 +162,11 @@ class COL(GBIF):
 							# This will be a list for synonyms, dict for misapplied names
 							try:
 								s = synonym[0]
-								if 'misapplied' not in s['status'].lower():
+								# Status field isn't always included for some reason
+								if synonym_type == 'heterotypic' or 'misapplied' not in s['status'].lower():
 									synonyms.append(s['scientificName'])
 							except Exception as err:
-								pass
+								print("Warning: check synonym object")
 
 					synonyms.sort()
 					return synonyms
