@@ -61,7 +61,7 @@ def checkSynonym(nga_dataset, search_obj, search_term, nga_hyb_status=None):
 	non_hyb_search_term = search_term.replace(' x ',' ')
 	results = search_obj.search(non_hyb_search_term)
 	if len(results) > 1:
-		print(' ',non_hyb_search_term,'-',results[1])
+		#print(' ',non_hyb_search_term,'-',results[1])
 		msg = results[1]
 
 	status = results[0]
@@ -742,7 +742,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 						print('MP  ',botanical_name)
 
 				# Flag an update to the database entry if the common name needs changing
-				if not selection_entry['warning']:
+				if not selection_entry['warning'] and not ('changed' in selection_entry and selection_entry['changed']):
 					if selection_entry['common_name']:
 						print('CN  ',botanical_name)
 						update_selected_name = True
@@ -760,7 +760,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 						msg = ''
 						if 'duplicate' in selection_entry and selection_entry['duplicate']:
 							msg = "(New name already exists in NGA database)"
-						elif len(reassignments[selection_entry['new_bot_name']]) > 1:
+						elif selection_entry['new_bot_name'] in reassignments and len(reassignments[selection_entry['new_bot_name']]) > 1:
 							msg = "(Multiple names reassigned to this taxon)"
 						else:
 							update_selected_name = True

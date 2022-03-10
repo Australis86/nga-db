@@ -112,7 +112,7 @@ class COL(GBIF):
 			rdata = r.json()
 			if rdata['empty']:
 				# No match found
-				return [None, 'No match found']
+				return [None, 'No match found in COL']
 
 			illegal_status = []
 			if len(rdata['result']) > 0:
@@ -147,14 +147,14 @@ class COL(GBIF):
 				try:
 					r = self._session.get(self._synonym_url % (datasetKey, taxonID), auth=self._auth, headers={"Content-Type": "application/json"})
 				except requests.exceptions.RequestException as e:
-					return [None, 'Unable to retrieve synonyms']
+					return [None, 'Unable to retrieve synonyms from COL']
 				else:
 					synonyms = []
 					rdata = r.json()
 
 					# Check if there are any synonyms
 					if not rdata:
-						return [None, 'No synonyms available']
+						return [None, 'No synonyms available in COL']
 
 					# Iterate through the types of synonyms and collect the botanical names
 					for synonym_type in rdata:
@@ -186,7 +186,7 @@ class COL(GBIF):
 					if len(illegal_status) > 0:
 						return [None, 'Invalid status: %s' % ('/'.join(illegal_status))]
 					else:
-						return [None, 'No accepted or synonym name available']
+						return [None, 'No accepted or synonym name available from COL']
 
 				return [acceptedname['scientificName']]
 
