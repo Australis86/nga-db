@@ -142,11 +142,11 @@ class COL(GBIF):
 			if fetchSynonyms:
 				# Get the taxon ID so that we can get the synonyms
 				taxonID = closest['id']
-				datasetKey = closest['usage']['datasetKey']
+				dataset_key = closest['usage']['datasetKey']
 
 				# Post to the asynchronous API (this requests a build of an export)
 				try:
-					r = self._session.get(self._synonym_url % (datasetKey, taxonID), auth=self._auth, headers={"Content-Type": "application/json"})
+					r = self._session.get(self._synonym_url % (dataset_key, taxonID), auth=self._auth, headers={"Content-Type": "application/json"})
 				except requests.exceptions.RequestException as e:
 					return [None, 'Unable to retrieve synonyms from COL']
 				else:
@@ -253,7 +253,7 @@ class DCA(GBIF):
 				for c in r['classification']:
 					if 'rank' in c and c['rank'] == 'kingdom':
 						if c['name'] == 'Plantae':
-							datasetKey = r['usage']['datasetKey']
+							dataset_key = r['usage']['datasetKey']
 							taxonID = r['id']
 							break
 
@@ -265,7 +265,7 @@ class DCA(GBIF):
 
 			# Post to the asynchronous API (this requests a build of an export)
 			try:
-				r = self._session.post(self._export_request_url % datasetKey, auth=self._auth, data=json.dumps(data), headers={"Content-Type": "application/json"})
+				r = self._session.post(self._export_request_url % dataset_key, auth=self._auth, data=json.dumps(data), headers={"Content-Type": "application/json"})
 			except requests.exceptions.RequestException as e:
 				return (None, 'Unable to request build of the Darwin Core Archive.')
 			else:
@@ -278,7 +278,7 @@ class DCA(GBIF):
 				except requests.exceptions.RequestException as e:
 					return (None, None)
 				else:
-					if (r.status_code != 200):
+					if r.status_code != 200:
 						return (None, 'HTTP Error %s was returned when attempting to fetch the Darwin Core Archive.' % r.status_code)
 
 					# Write out the file stream received

@@ -527,7 +527,7 @@ class NGA:
 					contents = caption.get_text().strip().split(' (')[0]
 					fields['databoxes'].append(contents)
 
-			return(fields)
+			return fields
 
 
 	def checkParentageField(self, plant, recursed=False):
@@ -1099,7 +1099,7 @@ class NGA:
 
 		# If the name update was successful or the names are correct, propose the merge
 		if name_update:
-			if (new_plant['pid'] == old_plant['pid']):
+			if new_plant['pid'] == old_plant['pid']:
 				print("Error: Unable to merge a plant with itself.")
 				return
 

@@ -116,18 +116,18 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		return (col_hyb, col_hyb_q, nat_hyb)
 
 	# Create objects for future use
-	COLengine = nga.COL.COL()
+	col_engine = nga.COL.COL()
 
 	# Check if genus is a hybrid genus or not
 	hybrid_genus = False
 	if orchid_extensions:
-		KEWengine = nga.KEW.WCSP()
-		genus_info = KEWengine.nameSearch(genus)
+		kew_engine = nga.KEW.WCSP()
+		genus_info = kew_engine.nameSearch(genus)
 		if genus_info['hybrid']:
 			if genus_info['parentage'] is not None:
 				print("%s is a hybrid genus (%s)" % (genus, genus_info['parentage']['formula']))
 			else:
-				print("%s is a hybrid genus" % (genus))
+				print(f'{genus} is a hybrid genus')
 			hybrid_genus = True
 
 	# Storage for list of name changes to avoid double-ups when checking for missing accepted names
@@ -220,12 +220,12 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 					if nat_hyb and not col_hyb_q:
 
 						# Variable for storing KEW data, should it be needed
-						KEWresult = None
+						kew_result = None
 						hybrid_status = not nga_hyb and not hybrid_genus
 
 						# Update the name if this is supposed to be a natural hybrid but isn't listed as such
 						if hybrid_status:
-							hyb_name = full_name.replace(genus, '%s x' % genus)
+							hyb_name = full_name.replace(genus, f'{genus} x')
 							duplicate = hyb_name in entries
 
 							if hyb_name not in updated_names:
@@ -249,12 +249,12 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 							if orchid_extensions and not nga_dataset[full_name][cultivar]['parentage_exists']:
 
 								# If there is no KEW data yet, retrieve it
-								if KEWresult is None:
-									KEWresult = KEWengine.nameSearch(non_hyb_name)
+								if kew_result is None:
+									kew_result = kew_engine.nameSearch(non_hyb_name)
 
 								# Add parentage information if available
-								if KEWresult['parentage'] is not None:
-									nga_dataset[full_name][cultivar]['parentage'] = KEWresult['parentage']
+								if kew_result['parentage'] is not None:
+									nga_dataset[full_name][cultivar]['parentage'] = kew_result['parentage']
 
 					# This has a question over its status and may be a hybrid
 					elif col_hyb_q:
@@ -264,17 +264,17 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 					# This may not be a natural hybrid
 					else:
 						if orchid_extensions:
-							KEWresult = KEWengine.nameSearch(non_hyb_name)
-							if KEWresult['distribution'] is not None:
+							kew_result = kew_engine.nameSearch(non_hyb_name)
+							if kew_result['distribution'] is not None:
 								if not nga_hyb:
 									if hybrid_genus:
 										for cultivar in nga_dataset[full_name]:
 											nga_dataset[full_name][cultivar]['nat_hyb'] = True
 											nga_dataset[full_name][cultivar]['parentage_exists'] = nga_db.checkParentageField(nga_dataset[full_name][cultivar])
-											if not nga_dataset[full_name][cultivar]['parentage_exists'] and KEWresult['parentage'] is not None:
-												nga_dataset[full_name][cultivar]['parentage'] = KEWresult['parentage']
+											if not nga_dataset[full_name][cultivar]['parentage_exists'] and kew_result['parentage'] is not None:
+												nga_dataset[full_name][cultivar]['parentage'] = kew_result['parentage']
 									else:
-										hyb_name = full_name.replace(genus, '%s x' % genus)
+										hyb_name = full_name.replace(genus, f'{genus} x')
 										for cultivar in nga_dataset[full_name]:
 											nga_dataset[full_name][cultivar]['new_bot_name'] = hyb_name
 											nga_dataset[full_name][cultivar]['changed'] = True
@@ -282,8 +282,8 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 											nga_dataset[full_name][cultivar]['duplicate'] = hyb_name in entries
 											nga_dataset[full_name][cultivar]['nat_hyb'] = True
 											nga_dataset[full_name][cultivar]['parentage_exists'] = nga_db.checkParentageField(nga_dataset[full_name][cultivar])
-											if not nga_dataset[full_name][cultivar]['parentage_exists'] and KEWresult['parentage'] is not None:
-												nga_dataset[full_name][cultivar]['parentage'] = KEWresult['parentage']
+											if not nga_dataset[full_name][cultivar]['parentage_exists'] and kew_result['parentage'] is not None:
+												nga_dataset[full_name][cultivar]['parentage'] = kew_result['parentage']
 											if hyb_name not in updated_names:
 												updated_names.append(hyb_name)
 							else:
@@ -320,7 +320,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			elif 'synonym' in status:
 				# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
 				# Note that the species entry will have a cultivar name of ''
-				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, genus, nga_hyb)
+				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, col_engine, full_name, genus, nga_hyb)
 
 				if new_bot_name is not None:
 					if not duplicate and new_bot_name not in updated_names:
@@ -328,15 +328,15 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				else:
 					# If it gets to here, then something went badly wrong with the search
 					if search_msg is not None:
-						print("\tWarning: COL search failure for %s - %s" % (full_name, search_msg))
+						print(f'\tWarning: COL search failure for {full_name} - {search_msg}')
 					else:
-						print("\tWarning: COL search failure for %s" % full_name)
+						print(f'\tWarning: COL search failure for {full_name}')
 
 			# Unknown status
 			else:
 				for cultivar in nga_dataset[full_name]:
 					nga_dataset[botanical_name][cultivar]['warning'] = True # Default value
-					nga_dataset[botanical_name][cultivar]['warning_desc'] = 'Unknown taxonomic status: %s' % status
+					nga_dataset[botanical_name][cultivar]['warning_desc'] = f'Unknown taxonomic status: {status}'
 
 		# No match in DCA database or genus has been deprecated
 		else:
@@ -347,7 +347,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 			# Usually we only want to check the COL again if this entry isn't in the genus we're working on
 			# But occasionally entries are missing from the DCA dataset (sigh)
-			(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, COLengine, full_name, genus, nga_hyb)
+			(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, col_engine, full_name, genus, nga_hyb)
 
 			if accepted_name is not None:
 				if accepted_name != search_name and not duplicate and accepted_name not in updated_names:
@@ -358,26 +358,26 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 			# Check KEW database if we are looking at orchid genera
 			if orchid_extensions:
-				KEWresult = KEWengine.nameSearch(search_name)
+				kew_result = kew_engine.nameSearch(search_name)
 
-				if KEWresult['status'] is not None:
-					if KEWresult['name'] != search_name:
+				if kew_result['status'] is not None:
+					if kew_result['name'] != search_name:
 						# KEW database has a new name for the entry
-						duplicate = KEWresult['name'] in entries
+						duplicate = kew_result['name'] in entries
 
 						for cultivar in nga_dataset[full_name]:
-							nga_dataset[full_name][cultivar]['new_bot_name'] = KEWresult['name']
+							nga_dataset[full_name][cultivar]['new_bot_name'] = kew_result['name']
 							nga_dataset[full_name][cultivar]['changed'] = True
 							nga_dataset[full_name][cultivar]['duplicate'] = duplicate
-							if KEWresult['status'] == 'Unplaced':
+							if kew_result['status'] == 'Unplaced':
 								nga_dataset[botanical_name][cultivar]['warning'] = True # Default value
 								nga_dataset[botanical_name][cultivar]['warning_desc'] = 'Taxon is unplaced'
 
-						if not duplicate and KEWresult['name'] not in updated_names:
-							updated_names.append(KEWresult['name'])
+						if not duplicate and kew_result['name'] not in updated_names:
+							updated_names.append(kew_result['name'])
 
 					else:
-						if KEWresult['status'] == 'Unplaced':
+						if kew_result['status'] == 'Unplaced':
 							for cultivar in nga_dataset[full_name]:
 								nga_dataset[botanical_name][cultivar]['warning'] = True # Default value
 								nga_dataset[botanical_name][cultivar]['warning_desc'] = 'Taxon is unplaced'
@@ -490,7 +490,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 			# Else check if it's a hybrid
 			elif col_hyb and nat_hyb:
-				hybrid_name = entry.replace(genus, '%s x' % genus)
+				hybrid_name = entry.replace(genus, f'{genus} x')
 				entry_final = hybrid_name # Change the new name to include the hybrid symbol
 
 				# Check both with and without the hybrid symbol
@@ -503,7 +503,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 			# If this entry is missing from the NGA, check to see if it already exists as a synonym
 			if check_nga:
-				synonyms = COLengine.search(entry, True)
+				synonyms = col_engine.search(entry, True)
 				synonym_entries = {}
 
 				if len(synonyms) > 0 and synonyms[0] is not None:
@@ -513,7 +513,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 							synonym_entries[synonym] = dataset[synonym]
 
 							# Double-check to see if this is an accepted name; sometimes names are re-used
-							synonym_check = COLengine.search(synonym)[0]
+							synonym_check = col_engine.search(synonym)[0]
 							if synonym_check == synonym:
 								for cultivar in synonym_entries[synonym]:
 									synonym_entries[synonym][cultivar]['accepted'] = True
@@ -569,8 +569,8 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 	"""Check the RHS register to ensure that hybrid entries are correct."""
 
 	# Set up the connection to the RHS
-	RHSengine = nga.RHS.Register()
-	RHSengine.dbConnect(os.path.join(PATH,'RHS.db'))
+	rhs_engine = nga.RHS.Register()
+	rhs_engine.dbConnect(os.path.join(PATH,'RHS.db'))
 
 	# Ensure we have a connection to the NGA database
 	if nga_db is None:
@@ -590,7 +590,7 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 		hybrid_count = len(hybrid_names)
 		h = 0
 
-		sys.stdout.write("\rChecking hybrids in genus %s..." % genus)
+		sys.stdout.write(f'\rChecking hybrids in genus {genus}...')
 		sys.stdout.flush()
 
 		# Check each hybrid in this genus
@@ -622,7 +622,7 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 			grex = grex.strip()
 
 			# Search the RHS for the entry
-			r = RHSengine.search(genus, grex)
+			r = rhs_engine.search(genus, grex)
 
 			if r is None:
 				print("Error retrieving RHS results for",genus,grex)
@@ -641,11 +641,11 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 						# Check if the NGA page has the parentage field populated
 						hybrids[hybrid]['parentage_exists'] = nga_db.checkParentageField(hybrids[hybrid])
 
-		sys.stdout.write("\rChecking hybrids in genus %s... done.          \r\n" % genus)
+		sys.stdout.write(f'\rChecking hybrids in genus {genus}... done.          \r\n')
 		sys.stdout.flush()
 
 	# Close the database before return the results
-	RHSengine.dbClose()
+	rhs_engine.dbClose()
 
 	return nga_dataset
 
@@ -758,7 +758,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				# Check parentage field for natural hybrids
 				if 'nat_hyb' in selection_entry and not selection_entry['parentage_exists']:
 					if 'parentage' in selection_entry and selection_entry['parentage'] is not None:
-						print('MP  ',botanical_name,'(%s)' % selection_entry['parentage']['formula'])
+						print('MP  ',botanical_name,f'({selection_entry["parentage"]["formula"]})')
 						update_selected_data = True
 					else:
 						print('MP  ',botanical_name)
@@ -775,7 +775,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				# Check if the botanical name field needs updating
 				if 'changed' in selection_entry and selection_entry['changed']:
 					if selection_entry['warning']:
-						print('W   ', botanical_name, '->', selection_entry['new_bot_name'], ' (%s)' % selection_entry['warning_desc'])
+						print('W   ', botanical_name, '->', selection_entry['new_bot_name'], f' ({selection_entry["warning_desc"]})')
 						if not ('duplicate' in selection_entry and selection_entry['duplicate']) and selection_entry['new_bot_name'] in reassignments:
 							del reassignments[selection_entry['new_bot_name']]
 					else:
@@ -798,7 +798,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 				# Otherwise print any warnings
 				elif selection_entry['warning']:
-					print('W   ', botanical_name, ' (%s)' % selection_entry['warning_desc'])
+					print('W   ', botanical_name, f' ({selection_entry["warning_desc"]})')
 
 				# Propose name and data changes
 				if propose:
