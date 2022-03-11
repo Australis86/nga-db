@@ -11,74 +11,74 @@ __email__ = "jwhite88@gmail.com"
 __licence__ = "GNU Lesser General Public License v3.0"
 
 # Module imports
-import requests
 import re
-from bs4 import BeautifulSoup
 from urllib.parse import urljoin
+import requests
+from bs4 import BeautifulSoup
 
 
 class WCSP:
-	
+
 	def __init__(self):
 		"""Create an instance and set up a requests session to the KEW WCSP."""
-		
+
 		self._home_url = 'http://wcsp.science.kew.org/home.do'
 		self._search_url = 'http://wcsp.science.kew.org/qsearch.do'
 		self._hybrid_symbol = '×'
-		
+
 		self._session = requests.Session()
 		self._session.get(self._home_url)
-	
-	
+
+
 	def nameSearch(self, synonym):
 		"""Search the WCSP for a given name and return the current accepted name.
 		Will return a dict with name and status to indicate if a name is unplaced."""
-		
+
 		def parseItalics(italics, link):
 			"""Method to parse the italics in the name."""
-			
+
 			hybrid = False
-			
+
 			if len(italics) == 2:
 				# This includes hybrid taxa; the hybrid symbol will be at the start of one of the two fields
 				fields = [el.text.strip() for el in italics]
-				
+
 				# Check for a hybrid symbol; in this case it will be at the start of the field
 				for x in range(0, len(fields)):
 					if fields[x][1] == ' ':
 						fields[x] = fields[x][2:]
 						hybrid = True
-						
+
 			else:
 				# Must be a subspecies or variety
 				acceptednav = link.text
 				acceptedname = acceptednav.split(' ')[:len(italics)+1]
 				fields = [el.strip() for el in acceptedname]
-				
+
 				# Check for the hybrid symbol; in this case it will be a field with length 1
 				for x in range(0, len(fields)):
 					if len(fields[x]) == 1:
 						fields.pop(x)
 						hybrid = True
 						break
-				
+
 			return (' '.join(fields), hybrid)
-		
-		
+
+
 		def checkStatus(genus, soup, result):
 			"""Method to check the status of an entry."""
-			
+
 			is_accepted = soup.find('p', string=re.compile('This name is accepted'))
 			is_unplaced = soup.find('p', string=re.compile('This name is unplaced'))
 			distribution = soup.find('th', string=re.compile('Distribution:'))
 			formula = soup.find('th', string=re.compile('Hybrid Formula:'))
-			
+
 			# Check if this is an accepted name
 			if is_accepted is not None:
 				result['status'] = 'Accepted'
 			elif is_unplaced is not None:
 				result['status'] = 'Unplaced'
-				
+
 			# Check if there is a valid distribution
 			if distribution is not None:
 				dp = distribution.parent
@@ -86,38 +86,38 @@ class WCSP:
 				if location is not None:
 					lines = [row.strip() for row in location.stripped_strings]
 					result['distribution'] = '\n'.join(lines)
-				
+
 			# Check if there is a valid distribution
 			if formula is not None:
 				fp = formula.parent
 				parentage = fp.find('td')
 				if parentage is not None:
-					
+
 					# Get the parentage formula and remove the genus abbreviation
 					parentage_formula = parentage.text.strip().replace(self._hybrid_symbol,'X')
 					genus_abbrev = "%c." % genus[0]
 					abbrev_count = parentage_formula.count(genus_abbrev)
 					parentage_formula = parentage_formula.replace(genus_abbrev, genus)
-					
+
 					result['parentage'] = {
 						'formula': parentage_formula,
 						'intergeneric_hybrid_parents': False,
 					}
 
 			return result
-		
-		
+
+
 		def findBotanicalName(genus, soup, result):
 			"""Method to find the accepted botanical name in an entry."""
-			
+
 			# Check to see if this is the accepted name entry
 			result = checkStatus(genus, soup, result)
 			if result['status'] is not None:
 				return result
-			
+
 			# Otherwise, look for the field pointing to the new accepted name
 			links = soup.findAll('a', {'class':'acceptednav'})
-			
+
 			# Look for the botanical name
 			if len(links) > 0:
 				italics = links[0].findAll('i')
@@ -127,13 +127,13 @@ class WCSP:
 					result['name'] = name
 					result['hybrid'] = hybrid
 					return result
-					
+
 			return None
-		
+
 		data = {'plantName': synonym, 'page': 'quickSearch'}
 		result = {'name': synonym, 'status': None, 'distribution': None, 'hybrid': False, 'parentage': None}
 		genus = synonym.split(' ')[0]
-		
+
 		try:
 			r = self._session.post(self._search_url, data=data)
 		except requests.exceptions.RequestException as e:
@@ -144,20 +144,20 @@ class WCSP:
 			status = findBotanicalName(genus, soup, result)
 			if status is not None:
 				return status
-			
+
 			# Check for multiple search results
 			links = soup.findAll('a', {'class':'onwardnav'})
 			for link in links:
 				italics = link.findAll('i')
 				if italics is not None:
 					(name, hybrid) = parseItalics(italics, link)
-					
+
 					# Select the entry that matches our search term
 					if name == synonym:
 						result['hybrid'] = hybrid
 						href = link['href']
 						url = urljoin(self._search_url, href)
-						
+
 						try:
 							r = self._session.get(url)
 						except requests.exceptions.RequestException as e:
@@ -169,12 +169,12 @@ class WCSP:
 							status = findBotanicalName(genus, soup, result)
 							if status is not None:
 								return status
-		
+
 		return result
-		
-		
+
+
 def testModule(synonym='Cymbidium iansonii'):
 	"""A simple test to check that all functions are working correctly."""
-	
+
 	myKEW = WCSP()
 	print(synonym, '->', myKEW.nameSearch(synonym))

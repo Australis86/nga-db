@@ -11,15 +11,15 @@ __licence__ = "GNU Lesser General Public License v3.0"
 import nga # Custom module for NGA and other resources
 
 # Old and new botanical names
-old_botanical_name = 'Geranium x oxonianum'
-new_botanical_name = 'Geranium'
+OLD_BOTANICAL_NAME = 'Geranium x oxonianum'
+NEW_BOTANICAL_NAME = 'Geranium'
 
 ngadb = nga.NGA.NGA()
-results = ngadb.search(old_botanical_name)
-if old_botanical_name in results:
-	results = results[old_botanical_name]
+results = ngadb.search(OLD_BOTANICAL_NAME)
+if OLD_BOTANICAL_NAME in results:
+	results = results[OLD_BOTANICAL_NAME]
 	for plant in results:
 		entry = results[plant]
-		entry['new_bot_name'] = new_botanical_name
+		entry['new_bot_name'] = NEW_BOTANICAL_NAME
 		entry['rename'] = True
 		ngadb.proposeNameChange(entry)

@@ -19,13 +19,13 @@ import os
 import sys
 import json
 import re
-import requests
 import time
 import getpass
 from collections import OrderedDict
 from urllib.parse import urljoin, urlparse, parse_qs
-from bs4 import BeautifulSoup
 from sys import stdout
+import requests
+from bs4 import BeautifulSoup
 
 class NGA:
 

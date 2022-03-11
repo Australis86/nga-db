@@ -11,21 +11,22 @@ __email__ = "jwhite88@gmail.com"
 __licence__ = "GNU Lesser General Public License v3.0"
 
 # Module imports
-import csv
 import os
 import sys
+import csv
 import json
-import requests
 import re
+import getpass
 import shutil
 import sqlite3
 import zipfile
-import getpass
+from sys import stdout
+from datetime import datetime, timedelta
+from urllib.parse import urljoin
+import requests
 from requests.auth import HTTPBasicAuth
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
-from datetime import datetime, timedelta
-from sys import stdout
+
 script_path = os.path.dirname(__file__)
 
 
