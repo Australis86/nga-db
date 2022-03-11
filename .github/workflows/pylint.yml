@@ -20,4 +20,4 @@ jobs:
         pip install pylint bs4 lxml python-levenshtein requests
     - name: Analyse the code with pylint
       run: |
-        pylint --indent-string 't' --ignore-long-lines --function-naming-style 'camel' $(git ls-files '*.py')
+        pylint --indent-string='t' --ignore-long-lines --function-naming-style='camel' $(git ls-files '*.py')
