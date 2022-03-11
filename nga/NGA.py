@@ -190,7 +190,7 @@ class NGA:
 
 		# Extract the plant ID
 		if url is not None:
-			pid = re.search('(?:/)(\d+)(?:/)', url, re.DOTALL).group(1)
+			pid = re.search(r'(?:/)(\d+)(?:/)', url, re.DOTALL).group(1)
 			obj['pid'] = pid
 
 		return obj
@@ -210,7 +210,7 @@ class NGA:
 		# Name components
 		# If an entry has a common name, the botanic name and cultivar will be in parentheses
 		if '(' in anchor_text:
-			regex = '(?:\()(.+)(?:\))'
+			regex = r'(?:\()(.+)(?:\))'
 			entry_name = re.search(regex, anchor_text, re.DOTALL).group(1) # Remember to use group 1 here
 		else:
 			entry_name = anchor_text
@@ -351,7 +351,7 @@ class NGA:
 							if num > npages:
 								npages = num
 
-						except ValueError as err:
+						except ValueError:
 							pass
 
 			# If increment is still None at this stage, then there is only one page

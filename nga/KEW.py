@@ -45,9 +45,9 @@ class WCSP:
 				fields = [el.text.strip() for el in italics]
 
 				# Check for a hybrid symbol; in this case it will be at the start of the field
-				for x in range(0, len(fields)):
-					if fields[x][1] == ' ':
-						fields[x] = fields[x][2:]
+				for idx in range(0, len(fields)):
+					if fields[idx][1] == ' ':
+						fields[idx] = fields[idx][2:]
 						hybrid = True
 
 			else:
@@ -57,9 +57,9 @@ class WCSP:
 				fields = [el.strip() for el in acceptedname]
 
 				# Check for the hybrid symbol; in this case it will be a field with length 1
-				for x in range(0, len(fields)):
-					if len(fields[x]) == 1:
-						fields.pop(x)
+				for idx in range(0, len(fields)):
+					if len(fields[idx]) == 1:
+						fields.pop(idx)
 						hybrid = True
 						break
 
@@ -82,22 +82,22 @@ class WCSP:
 
 			# Check if there is a valid distribution
 			if distribution is not None:
-				dp = distribution.parent
-				location = dp.find('td')
+				dist_parent = distribution.parent
+				location = dist_parent.find('td')
 				if location is not None:
 					lines = [row.strip() for row in location.stripped_strings]
 					result['distribution'] = '\n'.join(lines)
 
 			# Check if there is a valid distribution
 			if formula is not None:
-				fp = formula.parent
-				parentage = fp.find('td')
+				formula_parent = formula.parent
+				parentage = formula_parent.find('td')
 				if parentage is not None:
 
 					# Get the parentage formula and remove the genus abbreviation
 					parentage_formula = parentage.text.strip().replace(self._hybrid_symbol,'X')
 					genus_abbrev = "%c." % genus[0]
-					abbrev_count = parentage_formula.count(genus_abbrev)
+					#abbrev_count = parentage_formula.count(genus_abbrev)
 					parentage_formula = parentage_formula.replace(genus_abbrev, genus)
 
 					result['parentage'] = {
@@ -137,7 +137,7 @@ class WCSP:
 
 		try:
 			req = self._session.post(self._search_url, data=data)
-		except requests.exceptions.RequestException as err:
+		except requests.exceptions.RequestException:
 			return result
 		else:
 			# Parse the response HTML here and check for an accepted name
@@ -177,5 +177,5 @@ class WCSP:
 def testModule(synonym='Cymbidium iansonii'):
 	"""A simple test to check that all functions are working correctly."""
 
-	myKEW = WCSP()
-	print(synonym, '->', myKEW.nameSearch(synonym))
+	my_kew = WCSP()
+	print(synonym, '->', my_kew.nameSearch(synonym))

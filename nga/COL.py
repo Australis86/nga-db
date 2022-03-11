@@ -84,7 +84,7 @@ class GBIF:
 		# Store the credentials
 		gbif = open(auth_file, 'w')
 		os.chmod(auth_file, 0o0600) # Try to ensure only the user can read it
-		gbif.write('%s:%s' % (user,pwd))
+		gbif.write(f'{user}:{pwd}')
 		gbif.close()
 
 
@@ -187,7 +187,7 @@ class COL(GBIF):
 					acceptedname = usage['accepted']['name']
 				else:
 					if len(illegal_status) > 0:
-						return [None, 'Invalid status: %s' % ('/'.join(illegal_status))]
+						return [None, f'Invalid status: {("/".join(illegal_status))}']
 					else:
 						return [None, 'No accepted or synonym name available from COL']
 
@@ -231,7 +231,7 @@ class DCA(GBIF):
 			raise ValueError("DCA cache directory has not been set using setCache().")
 
 		# Prepare the filename and path for the ZIP file
-		zname = '%s.zip' % genus
+		zname = f'{genus}.zip'
 		zpath = os.path.join(self.__cache, zname)
 		gpath = None
 		errmsg = None
@@ -281,7 +281,7 @@ class DCA(GBIF):
 					return (None, None)
 				else:
 					if req.status_code != 200:
-						return (None, 'HTTP Error %s was returned when attempting to fetch the Darwin Core Archive.' % req.status_code)
+						return (None, f'HTTP Error {req.status_code} was returned when attempting to fetch the Darwin Core Archive.')
 
 					# Write out the file stream received
 					with open(zpath, 'wb') as output:
@@ -314,12 +314,12 @@ class DCA(GBIF):
 		errmsg = None
 
 		# Check for recent data
-		fname = '%s.db' % genus
+		fname = f'{genus}.db'
 		fpath = os.path.join(self.__cache, fname)
 
 		# Check the age of the cached data
 		if os.path.exists(fpath) and datetime.fromtimestamp(os.path.getmtime(fpath)) > self.__cache_age:
-			print("Recent SQLite DB for %s found. Skipping download and DB build." % genus)
+			print(f'Recent SQLite DB for {genus} found. Skipping download and DB build.')
 			return fpath
 		else:
 			stdout.write('Fetching Catalogue of Life Darwin Core Archive Export... ')
@@ -351,12 +351,12 @@ class DCA(GBIF):
 
 					# Prepare the commands
 					commands = [
-						".read %s/create-DCA-tables.sql" % script_path,
-						".mode tabs",
+						f'.read {script_path}/create-DCA-tables.sql',
+						'.mode tabs',
 					]
 
 					for t in tables:
-						commands.append('.import "%s/%s" %s' % (genus, t[0], t[1]))
+						commands.append(f'.import "{genus}/{t[0]}" {t[1]}')
 
 					stdout.write('done.\r\nBuilding database... ')
 					stdout.flush()
@@ -364,7 +364,7 @@ class DCA(GBIF):
 					# Create the temporary SQL file (based on provided SQLite import script)
 					sqlcat = os.path.join(tmpdir, 'sqlite3init.cat')
 					cf = open(sqlcat, 'w')
-					cf.writelines('%s\n' % comm for comm in commands)
+					cf.writelines(f'{comm}\n' for comm in commands)
 					cf.close()
 
 					# Create the SQL database
@@ -396,7 +396,7 @@ class DCA(GBIF):
 
 							# Must quote column names, since keywords 'order' and 'references' are used
 							query = 'INSERT INTO %s({0}) VALUES ({1})' % t[1]
-							query = query.format(','.join(['"%s"' % col for col in columns]), ','.join('?' * len(columns)))
+							query = query.format(','.join([f'"{col}"' for col in columns]), ','.join('?' * len(columns)))
 
 							# Import each row
 							for row in reader:
