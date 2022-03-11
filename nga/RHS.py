@@ -21,6 +21,7 @@ from bs4 import BeautifulSoup
 
 
 class Register:
+	"""Create a user-friendly API for the RHS Orchid Register webpage and local cache database."""
 
 	def __init__(self):
 		"""Create an instance and set up a requests session

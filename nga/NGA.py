@@ -28,6 +28,7 @@ import requests
 from bs4 import BeautifulSoup
 
 class NGA:
+	"""Create a user-friendly API for the NGA website's Plants Database."""
 
 	def __createSession(self):
 		"""Create a requests session."""
@@ -134,42 +135,41 @@ class NGA:
 			# Failed to retrieve the login page
 			raise ConnectionError("Unable to successfully retrieve authentication page.")
 
-		else:
-			# Successfully retrieved the login page
-			target = urljoin(self._home_url, '/i/ajax/users/login_check.php')
-			soup = BeautifulSoup(r.text, "lxml")
+		# Successfully retrieved the login page
+		target = urljoin(self._home_url, '/i/ajax/users/login_check.php')
+		soup = BeautifulSoup(r.text, "lxml")
 
-			# Find the redirect address
-			redirect_url = soup.find(id='login_redirect')['value']
-			redirect = urljoin(self._home_url, redirect_url)
-			print("Retrieved authentication page. Please enter your garden.org login details:")
+		# Find the redirect address
+		redirect_url = soup.find(id='login_redirect')['value']
+		redirect = urljoin(self._home_url, redirect_url)
+		print("Retrieved authentication page. Please enter your garden.org login details:")
 
-			# Build the object to post to the server
-			form_data = {}
+		# Build the object to post to the server
+		form_data = {}
 
-			# Ask the user for their credentials
-			form_data['u'] = input("Username: ")
-			form_data['p'] = getpass.getpass()
+		# Ask the user for their credentials
+		form_data['u'] = input("Username: ")
+		form_data['p'] = getpass.getpass()
 
-			# POST the form data
-			r = self._session.post(target, data=form_data)
+		# POST the form data
+		r = self._session.post(target, data=form_data)
 
-			# Successfully authenticated
-			if r.status_code == 200 and "1" in r.text:
+		# Successfully authenticated
+		if r.status_code == 200 and "1" in r.text:
 
-				# Redirect to the logged in page
-				r = self._session.get(redirect)
+			# Redirect to the logged in page
+			r = self._session.get(redirect)
 
-				# Retrieve the cookies and ensure we have valid credentials
-				c = self._session.cookies.get_dict()
-				if 'gojwt' in c:
-					self.__NGAcookie = self._session.cookies
-					self.__storeCookieArchive(c)
-					print("Successfully authenticated.")
-				else:
-					raise PermissionError("Failed to login: session cookie not found.")
+			# Retrieve the cookies and ensure we have valid credentials
+			c = self._session.cookies.get_dict()
+			if 'gojwt' in c:
+				self.__NGAcookie = self._session.cookies
+				self.__storeCookieArchive(c)
+				print("Successfully authenticated.")
 			else:
-				raise PermissionError("Failed to login: redirected to login page.")
+				raise PermissionError("Failed to login: session cookie not found.")
+		else:
+			raise PermissionError("Failed to login: redirected to login page.")
 
 
 	def regenerateSessionCookie(self, cookiepath):

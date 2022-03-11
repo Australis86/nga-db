@@ -18,6 +18,7 @@ from bs4 import BeautifulSoup
 
 
 class WCSP:
+	"""Create a user-friendly API for the KEW World Checklist of Selected Plants website."""
 
 	def __init__(self):
 		"""Create an instance and set up a requests session to the KEW WCSP."""

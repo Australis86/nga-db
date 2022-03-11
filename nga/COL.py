@@ -31,7 +31,7 @@ script_path = os.path.dirname(__file__)
 
 
 class GBIF:
-	"""GBIF superclass for handling authentication."""
+	"""GBIF class for handling authentication."""
 
 	def __init__(self):
 		"""Create an instance and set up a requests session to the COL API."""
@@ -78,8 +78,8 @@ class GBIF:
 		r = requests.get("https://api.checklistbank.org/user/me", auth=HTTPBasicAuth(user, pwd), headers={'accept': 'application/json'})
 		if r.status_code != 200:
 			raise PermissionError("Failed to authenticate with the COL API.")
-		else:
-			print("Successfully tested authentication.")
+
+		print("Successfully tested authentication.")
 
 		# Store the credentials
 		gbif = open(auth_file, 'w')
@@ -89,6 +89,7 @@ class GBIF:
 
 
 class COL(GBIF):
+	"""COL class for working with the COL API."""
 
 	def __init__(self):
 		"""Create an instance and set up a requests session to the COL API."""
@@ -98,7 +99,7 @@ class COL(GBIF):
 		self._synonym_url = 'https://api.checklistbank.org/dataset/%s/taxon/%s/synonyms'
 
 
-	def search(self, search_term, fetchSynonyms=False):
+	def search(self, search_term, fetch_synonyms=False):
 		"""Search the COL for a particular entry and returned the accepted name or synonyms."""
 
 		# Query parameters
@@ -132,14 +133,14 @@ class COL(GBIF):
 						if ('misapplied' not in rstatus) and ('ambiguous' not in rstatus):
 							closest = result
 							break
-						elif rstatus not in illegal_status:
+						if rstatus not in illegal_status:
 							illegal_status.append(rstatus)
 					else:
 						illegal_status.append('not in the plant kingdom')
 			else:
 				closest = rdata['result'][0]
 
-			if fetchSynonyms:
+			if fetch_synonyms:
 				# Get the taxon ID so that we can get the synonyms
 				taxonID = closest['id']
 				dataset_key = closest['usage']['datasetKey']
@@ -194,6 +195,7 @@ class COL(GBIF):
 
 
 class DCA(GBIF):
+	"""Class for working with Darwin Core Archive exports from the COL API."""
 
 	def __init__(self):
 		"""Create an instance and set up a requests session to the COL API."""
