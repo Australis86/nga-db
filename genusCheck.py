@@ -419,7 +419,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 					if ('accepted' not in closest_status):
 						warning = True
 						warning_msg = 'This is a synonym and is misspelt in the NGA database'
-					else: 
+					else:
 						warning = search_name != botanical_name
 						warning_msg = 'Misspelt accepted name in NGA database'
 					duplicate = closest_match in entries
@@ -854,7 +854,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 						# Compare PIDs (higher PID gets merged into lower PID)
 						pids_reversed = selection_pid < cultivar_pid
-						
+
 						if pids_reversed:
 							# Entry with accepted name has higher PID
 							datafields = nga_db.checkPageFields(cultivar_entry)
