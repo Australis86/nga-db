@@ -125,7 +125,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		genus_info = kew_engine.nameSearch(genus)
 		if genus_info['hybrid']:
 			if genus_info['parentage'] is not None:
-				print("%s is a hybrid genus (%s)" % (genus, genus_info['parentage']['formula']))
+				print(f'{genus} is a hybrid genus ({genus_info["parentage"]["formula"]})')
 			else:
 				print(f'{genus} is a hybrid genus')
 			hybrid_genus = True
@@ -139,12 +139,12 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		cur = conn.cursor()
 
 	# Iterate through the botanical names from the NGA database
-	bn = len(entries)
-	x = 0
+	num_names = len(entries)
+	iteration = 0
 
 	for botanical_name in entries:
-		x += 1
-		percentage = 100.0*(x/bn)
+		iteration += 1
+		percentage = 100.0*(iteration/num_names)
 		sys.stdout.write('\rChecking NGA botanical entries... %00.1f%%' % percentage)
 		sys.stdout.flush()
 
@@ -402,11 +402,11 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				last_ratio = 0
 
 				for row in cur:
-					nn = row[0].strip()
-					ratio = Levenshtein.ratio(nn, search_name)
+					taxon = row[0].strip()
+					ratio = Levenshtein.ratio(taxon, search_name)
 					if ratio > last_ratio:
 						last_ratio = ratio
-						closest_match = nn
+						closest_match = taxon
 						closest_status = row[1]
 						closest_id = row[2]
 
@@ -462,7 +462,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 		# Iterate through all the accepted names
 		print
-		x = 0.0
+		progress = 0.0
 		t = len(rows)
 		nga_dataset_additions = []
 
@@ -470,8 +470,8 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			nga_db = nga.NGA.NGA()
 
 		for row in rows:
-			x += 1.0
-			sys.stdout.write('\rChecking COL records... %00.1f%%' % (100.0*x/t))
+			progress += 1.0
+			sys.stdout.write('\rChecking COL records... %00.1f%%' % (100.0*progress/t))
 			sys.stdout.flush()
 
 			entry = row[0].strip() # Full botanical name
@@ -596,7 +596,7 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 		# Check each hybrid in this genus
 		for hybrid in hybrid_names:
 			h +=1
-			sys.stdout.write("\rChecking hybrids in genus %s... %d/%d" % (genus, h, hybrid_count))
+			sys.stdout.write(f'\rChecking hybrids in genus {genus}... {h}/{hybrid_count}')
 			sys.stdout.flush()
 			quotes = hybrid.count("'") # Get the number of quotes in the name
 			hybrids[hybrid]['has_quotes'] = False
@@ -662,13 +662,13 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 	counts = {}
 
 	# Identify which entries are single words (i.e. genera) and which are not (i.e. species)
-	for x in entries:
-		wc = len(x.split())
+	for entry in entries:
+		wc = len(entry.split())
 
 		if wc not in counts:
 			counts[wc] = []
 
-		counts[wc].append(x)
+		counts[wc].append(entry)
 
 	# Remove the genera-level entries from the list so that they are not processed in the botanical comparison function
 	if 1 in counts:
@@ -678,8 +678,8 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 		if len(genera) > 1:
 			print("Identified Genera:", ', '.join(genera))
 
-		for x in genera:
-			entries.remove(x)
+		for genus in genera:
+			entries.remove(genus)
 	else:
 		print("Missing genus-level entry for",genus)
 		genera = []
@@ -842,7 +842,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							else:
 								# TO DO: Just need to rename the existing cultivar
 								manual_merge = True
-								print("TO DO: Rename existing cultivar with name %s" % selection_name)
+								print(f'TO DO: Rename existing cultivar with name {selection_name}')
 								break
 						else:
 							cultivar_entry = botanical_taxon
@@ -895,7 +895,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				if propose:
 					sys.exit(1)
 			else:
-				sys.stdout.write(' done. %d found.\r\n' % len(pending.keys()))
+				sys.stdout.write(f' done. {len(pending.keys())} found.\r\n')
 				sys.stdout.flush()
 		else:
 			pending = None
@@ -906,9 +906,9 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 			# Check if there is an existing proposal first
 			pid = nga_db.checkNewProposal(pending, new_name, common_name)
 			if pid is not None:
-				print("    ",new_name,"[proposal %s]" % pid)
+				print('    ',new_name,f'[proposal {pid}]')
 			else:
-				print("    ",new_name)
+				print('    ',new_name)
 
 			if propose:
 				if pid is not None:
