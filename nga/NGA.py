@@ -216,7 +216,10 @@ class NGA:
 			entry_name = anchor_text
 
 		italics = entry.find('i')
-		if italics is not None:
+		if italics is None:
+			# This was probably a parent entry
+			return (None, None, None)
+		else:
 			botanic_name = italics.text # Botanical part
 			cultivar_name = entry_name.replace(botanic_name, '').strip() # Cultivar
 			plant_data = self._generatePlantObject(entry_name, entry_link)
@@ -235,9 +238,6 @@ class NGA:
 
 			return (botanic_name, cultivar_name, plant_data)
 
-		else:
-			# This was probably a parent entry
-			return (None, None, None)
 
 
 	def _parseGenusPage(self, page_soup, genus=None):
@@ -809,7 +809,7 @@ class NGA:
 						common_found = True
 
 					# If the common name isn't the genus, copy it
-					if common_tidied != synonym_genus and common_tidied != cname_exclude:
+					if common_tidied not in (synonym_genus, cname_exclude):
 						data[c['name']] = c['value']
 
 				# If the provided common name wasn't listed, add it
@@ -976,7 +976,7 @@ class NGA:
 						common_found = True
 
 					# If the common name isn't the genus, copy it
-					if common_tidied != accepted_genus and common_tidied != cname_exclude:
+					if common_tidied not in (accepted_genus, cname_exclude):
 						data[c['name']] = c['value']
 
 				# If the provided common name wasn't listed, add it

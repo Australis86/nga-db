@@ -69,7 +69,7 @@ def checkSynonym(nga_dataset, search_obj, search_term, working_genus, nga_hyb_st
 	duplicate = False
 
 	# Only update if it's not the same and the result is valid
-	if (retname != search_term and retname != non_hyb_search_term) and retname is not None:
+	if retname is not None and retname not in (search_term, non_hyb_search_term):
 		ret_fields = retname.split()
 		retgenus = ret_fields[0]
 		params_st = len(search_term.split())
@@ -416,7 +416,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 				# Only accept nearest match if the ratio is high (note that occasionally this can get it wrong!)
 				if ((last_ratio > 0.9) or gender_change) and (closest_match != search_name):
-					if ('accepted' not in closest_status):
+					if 'accepted' not in closest_status:
 						warning = True
 						warning_msg = 'This is a synonym and is misspelt in the NGA database'
 					else:
