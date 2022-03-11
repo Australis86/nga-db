@@ -145,7 +145,7 @@ class COL(GBIF):
 				# Post to the asynchronous API (this requests a build of an export)
 				try:
 					req = self._session.get(self._synonym_url % (dataset_key, taxon_id), auth=self._auth, headers={"Content-Type": "application/json"})
-				except requests.exceptions.RequestException as err:
+				except requests.exceptions.RequestException:
 					return [None, 'Unable to retrieve synonyms from COL']
 				else:
 					synonyms = []
@@ -164,7 +164,7 @@ class COL(GBIF):
 								# Status field isn't always included for some reason
 								if synonym_type == 'heterotypic' or 'misapplied' not in syn['status'].lower():
 									synonyms.append(syn['scientificName'])
-							except Exception as err:
+							except Exception:
 								print("Warning: check synonym object")
 
 					synonyms.sort()
@@ -265,7 +265,7 @@ class DCA(GBIF):
 			# Post to the asynchronous API (this requests a build of an export)
 			try:
 				req = self._session.post(self._export_request_url % dataset_key, auth=self._auth, data=json.dumps(data), headers={"Content-Type": "application/json"})
-			except requests.exceptions.RequestException as err:
+			except requests.exceptions.RequestException:
 				return (None, 'Unable to request build of the Darwin Core Archive.')
 			else:
 				# This should return the export key that can be used to fetch the ZIP file
@@ -274,7 +274,7 @@ class DCA(GBIF):
 				# Fetch the export
 				try:
 					req = self._session.get(self._export_retrieve_url % rdata, auth=self._auth, headers={"Accept": "application/octet-stream, application/zip"}, stream=True)
-				except requests.exceptions.RequestException as err:
+				except requests.exceptions.RequestException:
 					return (None, None)
 				else:
 					if req.status_code != 200:

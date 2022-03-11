@@ -16,8 +16,9 @@ import sqlite3
 import re
 try:
 	import Levenshtein
-except ImportError as err:
-	Levenshtein = None
+	lv_exists = True
+except ImportError:
+	lv_exists = False
 	print("Levenshtein module not installed. Spellchecking will not be available.")
 import nga # Custom module for NGA and other resources
 
@@ -388,7 +389,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			# At this stage there has been no match in the COL or KEW databases, so check for misspellings
 			# If the Levenshtein module is available, we can get the distance between an accepted species and the NGA entry
 			# Allows us to check for typos/spelling mistakes
-			if Levenshtein is not None and dca_db is not None:
+			if lv_exists and dca_db is not None:
 				# Get the list of taxa
 				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' ELSE 'var.' END || ' ' || infraspecificEpithet as epithet, taxonomicStatus, acceptedNameUsageID from Taxon GROUP BY epithet"
 				cur.execute(sql)

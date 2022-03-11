@@ -113,7 +113,7 @@ class NGA:
 
 		except Exception as err:
 			# We must have a valid cookie file, or the NGA site will block us`
-			print(f'Error writing cookie archive {cookiepath}. A valid cookie file is required to use this script.')
+			print(f'Error writing cookie archive {self._cookiepath}. A valid cookie file is required to use this script.')
 
 			# Re-raise the exception
 			raise err

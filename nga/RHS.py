@@ -94,22 +94,22 @@ class Register:
 			if len(tables) == 2:
 				# Process the first table containing the epithet and registration info
 				entry = tables[0]
-				tr = entry.findAll('tr')
+				rows = entry.findAll('tr')
 
 				# Iterate through the rows of the table
 				# First column should be the field name and second is the value
-				for row in tr:
+				for row in rows:
 					cells = row.findAll('td')
 					grex[cells[0].text] = cells[1].text
 
 				# Process the second table containing the parentage information
 				parentage = tables[1]
 				tbody = parentage.find('tbody')
-				tr = tbody.findAll('tr')
+				rows = tbody.findAll('tr')
 
 				# Iterate through the rows of the table
 				# First column is the field name, second is the pod parent info and third is the pollen parent info
-				for row in tr:
+				for row in rows:
 					fieldname = row.find('th')
 					fieldvalues = row.findAll('td')
 					grex[f'Pod Parent {fieldname.text}'] = fieldvalues[0].text.replace('{var}','var.').replace('{subsp}','subsp.').replace('(','[').replace(')',']')
@@ -183,13 +183,13 @@ class Register:
 	def __parseSearchResults(self, soup, genus, results):
 		"""Parse a result page from the RHS search."""
 
-		tr = soup.findAll('tr')
+		rows = soup.findAll('tr')
 		if results['matches'] is None:
 			results['matches'] = {}
 
 		# For each row in the table of results, looking for hybrid entries
 		page_genus = None
-		for row in tr:
+		for row in rows:
 			cells = row.findAll('td')
 			if len(cells) == 2:
 				# Check what genus the result entry belongs to
@@ -261,7 +261,7 @@ class Register:
 
 						try:
 							req = self._session.get(urljoin(self._search_url, link))
-						except requests.exceptions.RequestException as err:
+						except requests.exceptions.RequestException:
 							return None
 						else:
 							# Parse the returned HTML
