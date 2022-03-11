@@ -15,10 +15,10 @@ import argparse
 import sqlite3
 import re
 try:
-	import Levenshtein
-	lv_exists = True
+	from Levenshtein import ratio
+	LV_EXISTS = True
 except ImportError:
-	lv_exists = False
+	LV_EXISTS = False
 	print("Levenshtein module not installed. Spellchecking will not be available.")
 import nga # Custom module for NGA and other resources
 
@@ -389,7 +389,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			# At this stage there has been no match in the COL or KEW databases, so check for misspellings
 			# If the Levenshtein module is available, we can get the distance between an accepted species and the NGA entry
 			# Allows us to check for typos/spelling mistakes
-			if lv_exists and dca_db is not None:
+			if LV_EXISTS and dca_db is not None:
 				# Get the list of taxa
 				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' ELSE 'var.' END || ' ' || infraspecificEpithet as epithet, taxonomicStatus, acceptedNameUsageID from Taxon GROUP BY epithet"
 				cur.execute(sql)
@@ -402,9 +402,9 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 				for row in cur:
 					taxon = row[0].strip()
-					ratio = Levenshtein.ratio(taxon, search_name)
-					if ratio > last_ratio:
-						last_ratio = ratio
+					lv_ratio = ratio(taxon, search_name)
+					if lv_ratio > last_ratio:
+						last_ratio = lv_ratio
 						closest_match = taxon
 						closest_status = row[1]
 						#closest_id = row[2]
@@ -528,17 +528,16 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 					# Need to ensure that none of the synonyms are also accepted names
 					# Just in case a name has multiple uses
 					# For each synonym in the NGA database, ensure it is in the dataset
-					for syn_entry in synonym_entries:
+					for syn_entry, cultivars_syn in synonym_entries.items():
 						if syn_entry not in nga_dataset:
 							nga_dataset[syn_entry] = {}
 
 						cultivars_nga = nga_dataset[syn_entry]
-						cultivars_syn = synonym_entries[syn_entry]
 
 						# Ensure that each cultivar is in the NGA dataset first
 						for cultivar in cultivars_syn:
 							if cultivar not in cultivars_nga:
-								nga_dataset[syn_entry][cultivar] = synonym_entries[syn_entry][cultivar]
+								nga_dataset[syn_entry][cultivar] = cultivars_syn[cultivar]
 
 						# Update the botanical name status
 						for cultivar in cultivars_nga:
@@ -808,18 +807,18 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 	# Highlight plants to combine/merge
 	if merges_req and len(reassignments.keys()) > 0:
 		print("\nThese entries will need to be merged (synonym -> accepted name):\n M = Manual merge required\n W = Warning; entry should not have reached this section of code\n")
-		for new_name in reassignments:
+		for new_name, reassigned in reassignments.items():
 			manual_merge = False
 			merges = {}
 
 			if new_name not in nga_dataset:
-				if len(reassignments[new_name]) > 1:
+				if len(reassigned) > 1:
 					# This indicates we have multiple names being assigned to a new name, but the new name doesn't exist yet in the database
 					# Need to handle this differently
 					manual_merge = True
 				else:
 					# This should have been caught by previous code
-					print('W   ', ', '.join(reassignments[new_name]), '->', new_name)
+					print('W   ', ', '.join(reassigned), '->', new_name)
 					continue
 			else:
 				new_taxon = nga_dataset[new_name]
@@ -827,7 +826,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				botanical_pid = botanical_taxon['pid']
 
 				# Iterate through the names that need to be updated
-				for botanical_name in reassignments[new_name]:
+				for botanical_name in reassigned:
 					botanical_entry = nga_dataset[botanical_name]
 
 					# Iterate through the selections for this taxon
@@ -872,13 +871,12 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'pids_reversed': pids_reversed})
 
 			if manual_merge:
-				print('M   ', ', '.join(reassignments[new_name]), '->', new_name)
+				print('M   ', ', '.join(reassigned), '->', new_name)
 			else:
-				print('    ', ', '.join(reassignments[new_name]), '->', new_name)
+				print('    ', ', '.join(reassigned), '->', new_name)
 
 				if propose:
-					for target_pid in merges:
-						merge = merges[target_pid]
+					for merge in merges.values():
 						for entry in merge:
 							nga_db.proposeMerge(entry['old'], entry['new'], entry['pids_reversed'])
 
