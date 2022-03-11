@@ -79,12 +79,12 @@ class NGA:
 
 		if os.path.exists(cookiepath):
 			# Open the JSON file
-			fd = open(cookiepath, 'r')
+			file_desc = open(cookiepath, 'r')
 
 			# Try to read the JSON string and set the cookie parameters
 			try:
-				c = json.load(fd)
-				self.__NGAcookie.set('gojwt', c['gojwt'], domain='garden.org', path='/')
+				cookie = json.load(file_desc)
+				self.__NGAcookie.set('gojwt', cookie['gojwt'], domain='garden.org', path='/')
 
 			except Exception as err:
 				# We must have a valid cookie file, or the NGA site will block us`
@@ -93,7 +93,7 @@ class NGA:
 				# Re-raise the exception
 				raise err
 
-			fd.close()
+			file_desc.close()
 		else:
 			# We must have a valid cookie file, or the NGA site will block us`
 			print("Cookie archive %s not found. A valid cookie file is required to use this script." % cookiepath)
@@ -104,12 +104,12 @@ class NGA:
 		"""Store a JSON file containing cookies for the NGA website."""
 
 		# Open the file for writing
-		fd = open(self._cookiepath, 'w')
+		file_desc = open(self._cookiepath, 'w')
 		os.chmod(self._cookiepath, 0o0600) # Try to ensure only the user can read it
 
 		# Try to write the JSON string)
 		try:
-			json.dump(cookiejson, fd)
+			json.dump(cookiejson, file_desc)
 
 		except Exception as err:
 			# We must have a valid cookie file, or the NGA site will block us`
@@ -118,7 +118,7 @@ class NGA:
 			# Re-raise the exception
 			raise err
 
-		fd.close()
+		file_desc.close()
 
 
 	def __startAuthSession(self):
@@ -161,10 +161,10 @@ class NGA:
 			req = self._session.get(redirect)
 
 			# Retrieve the cookies and ensure we have valid credentials
-			c = self._session.cookies.get_dict()
-			if 'gojwt' in c:
+			cookie = self._session.cookies.get_dict()
+			if 'gojwt' in cookie:
 				self.__NGAcookie = self._session.cookies
-				self.__storeCookieArchive(c)
+				self.__storeCookieArchive(cookie)
 				print("Successfully authenticated.")
 			else:
 				raise PermissionError("Failed to login: session cookie not found.")
@@ -275,15 +275,15 @@ class NGA:
 		stdout.write("\rParsing NGA dataset...")
 		stdout.flush()
 
-		n = len(pages)
-		x = 1
+		total = len(pages)
+		count = 1
 
 		for page in pages:
-			stdout.write("\rParsing NGA dataset... %d/%d" % (x, n))
+			stdout.write("\rParsing NGA dataset... %d/%d" % (count, total))
 			stdout.flush()
 
 			self._parseGenusPage(page, genus)
-			x += 1
+			count += 1
 
 
 		n_entries = len(list(self.__genus_results))
@@ -333,9 +333,9 @@ class NGA:
 			npages = 1
 
 			if pages is not None:
-				for pg in pages:
-					pgnum = pg.text
-					pgurl = urlparse(pg['href']) # Parse the URL
+				for page in pages:
+					pgnum = page.text
+					pgurl = urlparse(page['href']) # Parse the URL
 					pgquery = parse_qs(pgurl.query)
 					if 'offset' in pgquery:
 						pgoffset = pgquery['offset'][0] # Extract the offset
@@ -359,10 +359,10 @@ class NGA:
 			if increment is not None:
 
 				# Tested adding multithreading here, but it doesn't provide enough of a benefit
-				for x in range(1, npages):
-					stdout.write("\rRetrieving NGA dataset... %d/%d" % (x+1, npages))
+				for page in range(1, npages):
+					stdout.write("\rRetrieving NGA dataset... %d/%d" % (page+1, npages))
 					stdout.flush()
-					genus_pages.append(self._fetchGenusPage(genus, x*increment))
+					genus_pages.append(self._fetchGenusPage(genus, page*increment))
 
 		stdout.write("\rRetrieving NGA dataset... done.        \r\n")
 		stdout.flush()
@@ -439,14 +439,14 @@ class NGA:
 			different_genus = (genus != parent[0])
 
 			# Check if is lowercase (and possibly symbols); i.e. a species
-			species = all(c.islower() or not c.isalpha() for c in parent[1])
+			species = all(namepart.islower() or not namepart.isalpha() for namepart in parent[1])
 
 			if species or different_genus:
-				rp = ' '.join(parent)
+				name = ' '.join(parent)
 			else:
-				rp = parent[1]
+				name = parent[1]
 
-			return (different_genus, species, rp)
+			return (different_genus, species, name)
 
 		def checkIfNaturalHybrid(parent):
 			"""Method to check if an entry is a natural hybrid
@@ -627,11 +627,11 @@ class NGA:
 			proposals = soup.findAll('tr')
 			pending = {}
 
-			for p in proposals:
-				if p.find("th") is not None:
+			for proposal in proposals:
+				if proposal.find("th") is not None:
 					continue
 
-				cells = p.findAll("td")
+				cells = proposal.findAll("td")
 				pid = cells[0].get_text().strip()
 				genus = cells[1].get_text().strip()
 				species = cells[2].get_text().strip()
@@ -686,7 +686,7 @@ class NGA:
 
 		# The COL search results is applicable to both the DCA export data
 		# and the COL search in this case, so no need to make it editable yet
-		COL_URL = 'https://www.catalogueoflife.org/data/search?facet=rank&facet=issue&facet=status&facet=nomStatus&facet=nameType&facet=field&facet=authorship&facet=extinct&facet=environment&limit=50&offset=0&q=%s&sortBy=taxonomic' % botanic_name.split()[0]
+		col_url = 'https://www.catalogueoflife.org/data/search?facet=rank&facet=issue&facet=status&facet=nomStatus&facet=nameType&facet=field&facet=authorship&facet=extinct&facet=environment&limit=50&offset=0&q=%s&sortBy=taxonomic' % botanic_name.split()[0]
 
 		if common_name is None:
 			common_name = ''
@@ -695,7 +695,7 @@ class NGA:
 			'common':common_name,
 			'cultivar':'',
 			'latin':botanic_name,
-			'notes':COL_URL,
+			'notes':col_url,
 			'series':'',
 			'submit':'Proceed to Step 2',
 			'tradename':'',
@@ -768,13 +768,13 @@ class NGA:
 			lparams['new'] = {'latin':synonym, 'latin_status':'synonym'}
 
 			# Add the latin names to the object
-			for lp in lparams:
-				if lp == 'new':
-					data['latin[]'] = lparams[lp]['latin']
-					data['latin_status[]'] = lparams[lp]['latin_status']
+			for param in lparams:
+				if param == 'new':
+					data['latin[]'] = lparams[param]['latin']
+					data['latin_status[]'] = lparams[param]['latin_status']
 				else:
-					data['latin[%s]' % lp] = lparams[lp]['latin']
-					data['latin_status[%s]' % lp] = lparams[lp]['latin_status']
+					data['latin[%s]' % param] = lparams[param]['latin']
+					data['latin_status[%s]' % param] = lparams[param]['latin_status']
 
 			# Common names
 			common_table = form.find('table', attrs={'id': 'common-table'})
@@ -801,8 +801,8 @@ class NGA:
 
 				# Cycle through the existing common names and ensure they are included
 				# (unless they are the genus)
-				for c in cnames:
-					common_tidied = c['value'].strip().lower()
+				for cname in cnames:
+					common_tidied = cname['value'].strip().lower()
 
 					# Check if the common name is already present
 					if common_lower == common_tidied:
@@ -810,7 +810,7 @@ class NGA:
 
 					# If the common name isn't the genus, copy it
 					if common_tidied not in (synonym_genus, cname_exclude):
-						data[c['name']] = c['value']
+						data[cname['name']] = cname['value']
 
 				# If the provided common name wasn't listed, add it
 				if not common_found and common_name is not None:
@@ -821,27 +821,27 @@ class NGA:
 			trade_data = trade_table.findAll('input')
 
 			# Copy any existing trade name data
-			for t in trade_data:
-				if t['name'] in 'tradename' and len(t['value'].strip()) < 1 and 'remove_quotes' in plant and plant['remove_quotes']:
-					data[t['name']] = plant['cleaned_name']
+			for trade_entry in trade_data:
+				if trade_entry['name'] in 'tradename' and len(trade_entry['value'].strip()) < 1 and 'remove_quotes' in plant and plant['remove_quotes']:
+					data[trade_entry['name']] = plant['cleaned_name']
 				else:
-					data[t['name']] = t['value']
+					data[trade_entry['name']] = trade_entry['value']
 
 			# Cultivars
 			cultivar_table = form.find('table', attrs={'id': 'cultivar-table'})
 			cultivars = cultivar_table.findAll('input')
 
 			# Copy any existing cultivars
-			for c in cultivars:
-				data[c['name']] = c['value']
+			for cultivar in cultivars:
+				data[cultivar['name']] = cultivar['value']
 
 			# Also sold as
 			asa_table = form.find('table', attrs={'id': 'asa-table'})
 			aliases = asa_table.findAll('asa')
 
 			# Copy any existing aliases
-			for a in aliases:
-				data[a['name']] = a['value']
+			for alias in aliases:
+				data[alias['name']] = alias['value']
 
 			data['submit'] = 'Submit your proposed changes'
 
@@ -923,8 +923,8 @@ class NGA:
 						found = False
 
 						# Check that the newly accepted name isn't a synonym already
-						for lp in lparams:
-							lentry = lparams[lp]
+						for param in lparams:
+							lentry = lparams[param]
 							if lentry['latin'] == plant['new_bot_name']:
 								lentry['latin_status'] = 'accepted'
 								found = True
@@ -934,13 +934,13 @@ class NGA:
 							lparams['new'] = {'latin':plant['new_bot_name'], 'latin_status':'accepted'}
 
 			# Add the latin names to the object
-			for lp in lparams:
-				if lp == 'new':
-					data['latin[]'] = lparams[lp]['latin']
-					data['latin_status[]'] = lparams[lp]['latin_status']
+			for param in lparams:
+				if param == 'new':
+					data['latin[]'] = lparams[param]['latin']
+					data['latin_status[]'] = lparams[param]['latin_status']
 				else:
-					data['latin[%s]' % lp] = lparams[lp]['latin']
-					data['latin_status[%s]' % lp] = lparams[lp]['latin_status']
+					data['latin[%s]' % param] = lparams[param]['latin']
+					data['latin_status[%s]' % param] = lparams[param]['latin_status']
 
 			# Common names
 			common_table = form.find('table', attrs={'id': 'common-table'})
@@ -968,8 +968,8 @@ class NGA:
 
 				# Cycle through the existing common names and ensure they are included
 				# (unless they are the genus)
-				for c in cnames:
-					common_tidied = c['value'].strip().lower()
+				for cname in cnames:
+					common_tidied = cname['value'].strip().lower()
 
 					# Check if the common name is already present
 					if common_lower == common_tidied:
@@ -977,7 +977,7 @@ class NGA:
 
 					# If the common name isn't the genus, copy it
 					if common_tidied not in (accepted_genus, cname_exclude):
-						data[c['name']] = c['value']
+						data[cname['name']] = cname['value']
 
 				# If the provided common name wasn't listed, add it
 				if not common_found and common_name is not None:
@@ -988,27 +988,27 @@ class NGA:
 			trade_data = trade_table.findAll('input')
 
 			# Copy any existing trade name data
-			for t in trade_data:
-				if t['name'] in 'tradename' and len(t['value'].strip()) < 1 and 'remove_quotes' in plant and plant['remove_quotes']:
-					data[t['name']] = plant['cleaned_name']
+			for trade_entry in trade_data:
+				if trade_entry['name'] in 'tradename' and len(trade_entry['value'].strip()) < 1 and 'remove_quotes' in plant and plant['remove_quotes']:
+					data[trade_entry['name']] = plant['cleaned_name']
 				else:
-					data[t['name']] = t['value']
+					data[trade_entry['name']] = trade_entry['value']
 
 			# Cultivars
 			cultivar_table = form.find('table', attrs={'id': 'cultivar-table'})
 			cultivars = cultivar_table.findAll('input')
 
 			# Copy any existing cultivars
-			for c in cultivars:
-				data[c['name']] = c['value']
+			for cultivar in cultivars:
+				data[cultivar['name']] = cultivar['value']
 
 			# Also sold as
 			asa_table = form.find('table', attrs={'id': 'asa-table'})
 			aliases = asa_table.findAll('asa')
 
 			# Copy any existing aliases
-			for a in aliases:
-				data[a['name']] = a['value']
+			for alias in aliases:
+				data[alias['name']] = alias['value']
 
 			data['submit'] = 'Submit your proposed changes'
 
@@ -1043,21 +1043,21 @@ class NGA:
 				# Ensure all the existing values are kept
 				table = form.find('table')
 				fields = table.findAll(['input','select'])
-				for f in fields:
-					data[f['name']] = '' # Default is blank
+				for field in fields:
+					data[field['name']] = '' # Default is blank
 
 					# Handle checkboxes
-					if 'type' in f.attrs:
-						if f['type'] == 'checkbox' and 'checked' in f.attrs:
-							data[f['name']] = 'on'
-						elif 'value' in f.attrs:
-							data[f['name']] = f['value']
+					if 'type' in field.attrs:
+						if field['type'] == 'checkbox' and 'checked' in field.attrs:
+							data[field['name']] = 'on'
+						elif 'value' in field.attrs:
+							data[field['name']] = field['value']
 
 					# Handle dropdown options
-					elif f.name == 'select':
-						for option in f.children:
+					elif field.name == 'select':
+						for option in field.children:
 							if 'selected' in option.attrs:
-								data[f['name']] = option['value']
+								data[field['name']] = option['value']
 
 				# Locate the parentage field
 				parentage_cell = table.find(string=re.compile('Parentage')) # Due to the fact that this is next to a span, BS4 considers this a text node, so searching for the parent doesn't work in this case
@@ -1065,10 +1065,10 @@ class NGA:
 					parentage_field = parentage_cell.parents
 
 					# Walk up through the parents until we hit the TR tag
-					for p in parentage_field:
-						if p.name == 'tr':
+					for parent in parentage_field:
+						if parent.name == 'tr':
 							# Locate the input element
-							input_field = p.find('input')
+							input_field = parent.find('input')
 							if input_field is not None:
 								# Update the parentage field
 								data[(input_field['name'])] = plant['parentage']['formula']
@@ -1129,17 +1129,17 @@ def testModule(cookiepath=None):
 		global NGA_COOKIE
 		NGA_COOKIE = cookiepath
 
-	myNGA = NGA()
-	results = myNGA.fetchGenus('Cymbidium')
+	my_nga = NGA()
+	results = my_nga.fetchGenus('Cymbidium')
 	print(results.keys())
 
 	print("Testing for invalid entry...")
-	searchResults = myNGA.search('Cymbidium xyz')
-	if searchResults is None:
+	search_results = my_nga.search('Cymbidium xyz')
+	if search_results is None:
 		print("Success.")
 	else:
-		print(searchResults)
+		print(search_results)
 
 	print("Testing for valid entry...")
-	searchResults = myNGA.search('Cymbidium lowianum')
-	print(searchResults)
+	search_results = my_nga.search('Cymbidium lowianum')
+	print(search_results)

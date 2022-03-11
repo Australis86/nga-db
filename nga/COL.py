@@ -15,17 +15,14 @@ import os
 import sys
 import csv
 import json
-import re
 import getpass
 import shutil
 import sqlite3
 import zipfile
 from sys import stdout
 from datetime import datetime, timedelta
-from urllib.parse import urljoin
 import requests
 from requests.auth import HTTPBasicAuth
-from bs4 import BeautifulSoup
 
 script_path = os.path.dirname(__file__)
 
@@ -163,10 +160,10 @@ class COL(GBIF):
 						for synonym in rdata[synonym_type]:
 							# This will be a list for synonyms, dict for misapplied names
 							try:
-								s = synonym[0]
+								syn = synonym[0]
 								# Status field isn't always included for some reason
-								if synonym_type == 'heterotypic' or 'misapplied' not in s['status'].lower():
-									synonyms.append(s['scientificName'])
+								if synonym_type == 'heterotypic' or 'misapplied' not in syn['status'].lower():
+									synonyms.append(syn['scientificName'])
 							except Exception as err:
 								print("Warning: check synonym object")
 
@@ -223,7 +220,7 @@ class DCA(GBIF):
 		self.__cache_age = datetime.now() - cache_age_td
 
 
-	def _exportGenus(self, genus, keepZIP=False):
+	def _exportGenus(self, genus, keep_zip=False):
 		"""Download the genus ZIP file from the Darwin Core Archive
 		and extract it into the cache folder."""
 
@@ -297,9 +294,9 @@ class DCA(GBIF):
 					else:
 						errmsg = "The downloaded Darwin Core Archive export was not a valid zip file."
 						gpath = None
-						keepZIP = False
+						keep_zip = False
 
-					if not keepZIP:
+					if not keep_zip:
 						os.remove(zpath)
 
 		return (gpath, errmsg)
@@ -355,17 +352,17 @@ class DCA(GBIF):
 						'.mode tabs',
 					]
 
-					for t in tables:
-						commands.append(f'.import "{genus}/{t[0]}" {t[1]}')
+					for table in tables:
+						commands.append(f'.import "{genus}/{table[0]}" {table[1]}')
 
 					stdout.write('done.\r\nBuilding database... ')
 					stdout.flush()
 
 					# Create the temporary SQL file (based on provided SQLite import script)
 					sqlcat = os.path.join(tmpdir, 'sqlite3init.cat')
-					cf = open(sqlcat, 'w')
-					cf.writelines(f'{comm}\n' for comm in commands)
-					cf.close()
+					file_desc = open(sqlcat, 'w')
+					file_desc.writelines(f'{comm}\n' for comm in commands)
+					file_desc.close()
 
 					# Create the SQL database
 					if os.path.exists(fpath):
@@ -376,26 +373,26 @@ class DCA(GBIF):
 
 					# Try to create the tables
 					file_desc = open(os.path.join(script_path,'create-DCA-tables.sql'), 'r')
-					cs = file_desc.read()
+					contents = file_desc.read()
 					file_desc.close()
 
-					queries = cs.split(';')
-					for q in queries:
-						cur.execute(q)
+					queries = contents.split(';')
+					for query in queries:
+						cur.execute(query)
 						conn.commit()
 
 					# Import files
-					for t in tables:
-						tname = os.path.join(gpath, t[0])
-						with open(tname, 'r', encoding='utf-8-sig') as f:
-							reader = csv.reader(f, dialect=csv.excel_tab, quoting=csv.QUOTE_NONE)
+					for table in tables:
+						tname = os.path.join(gpath, table[0])
+						with open(tname, 'r', encoding='utf-8-sig') as file_desc:
+							reader = csv.reader(file_desc, dialect=csv.excel_tab, quoting=csv.QUOTE_NONE)
 
 							# Get the column names from the header row
 							columns = next(reader)
 							columns = [h.strip().split(':')[-1] for h in columns]
 
 							# Must quote column names, since keywords 'order' and 'references' are used
-							query = 'INSERT INTO %s({0}) VALUES ({1})' % t[1]
+							query = 'INSERT INTO %s({0}) VALUES ({1})' % table[1]
 							query = query.format(','.join([f'"{col}"' for col in columns]), ','.join('?' * len(columns)))
 
 							# Import each row
@@ -438,21 +435,21 @@ class DCA(GBIF):
 def testSearch(search_term='Cymbidium iansonii'):
 	"""A simple test to check that all functions are working correctly."""
 
-	myCOL = COL()
-	print(myCOL.search(search_term))
-	print(myCOL.search(search_term, True))
+	my_col = COL()
+	print(my_col.search(search_term))
+	print(my_col.search(search_term, True))
 
 
 def testExport(genus='Cymbidium', cache_path="./"):
 	"""A simple test to check that all functions are working correctly.
 	The default is to create a cache database in the local directory."""
 
-	myDCA = DCA()
+	my_dca = DCA()
 	try:
 		print("Testing exception handling...")
-		myDCA.fetchGenus(genus) # Prove the exception works
+		my_dca.fetchGenus(genus) # Prove the exception works
 	except ValueError as err:
 		print(str(err))
-	myDCA.setCache(cache_path)
-	myDCA.setCacheAge(timedelta(seconds=1))
-	myDCA.fetchGenus(genus)
+	my_dca.setCache(cache_path)
+	my_dca.setCacheAge(timedelta(seconds=1))
+	my_dca.fetchGenus(genus)

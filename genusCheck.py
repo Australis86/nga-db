@@ -585,15 +585,15 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 		if '' in hybrid_names:
 			hybrid_names.remove('')
 		hybrid_count = len(hybrid_names)
-		h = 0
+		iteration = 0
 
 		sys.stdout.write(f'\rChecking hybrids in genus {genus}...')
 		sys.stdout.flush()
 
 		# Check each hybrid in this genus
 		for hybrid in hybrid_names:
-			h +=1
-			sys.stdout.write(f'\rChecking hybrids in genus {genus}... {h}/{hybrid_count}')
+			iteration +=1
+			sys.stdout.write(f'\rChecking hybrids in genus {genus}... {iteration}/{hybrid_count}')
 			sys.stdout.flush()
 			quotes = hybrid.count("'") # Get the number of quotes in the name
 			hybrids[hybrid]['has_quotes'] = False
@@ -602,9 +602,9 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 				grex = hybrid
 			else:
 				# Might be a mis-entered grex or a grex with clonal name
-				m = clones_regex.search(hybrid)
-				if m is not None:
-					grex = hybrid[:m.start()]
+				matched = clones_regex.search(hybrid)
+				if matched is not None:
+					grex = hybrid[:matched.start()]
 				else:
 					# This is probably a grex wrapped in quotes or a clonal name without a grex
 					cleaned = hybrid.strip("'")
@@ -660,12 +660,12 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 
 	# Identify which entries are single words (i.e. genera) and which are not (i.e. species)
 	for entry in entries:
-		wc = len(entry.split())
+		word_count = len(entry.split())
 
-		if wc not in counts:
-			counts[wc] = []
+		if word_count not in counts:
+			counts[word_count] = []
 
-		counts[wc].append(entry)
+		counts[word_count].append(entry)
 
 	# Remove the genera-level entries from the list so that they are not processed in the botanical comparison function
 	if 1 in counts:
@@ -878,8 +878,8 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				if propose:
 					for target_pid in merges:
 						merge = merges[target_pid]
-						for m in merge:
-							nga_db.proposeMerge(m['old'], m['new'], m['pids_reversed'])
+						for entry in merge:
+							nga_db.proposeMerge(entry['old'], entry['new'], entry['pids_reversed'])
 
 	# Add any missing accepted names
 	if len(additions) > 0:
