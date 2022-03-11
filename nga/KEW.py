@@ -136,12 +136,12 @@ class WCSP:
 		genus = synonym.split(' ')[0]
 
 		try:
-			r = self._session.post(self._search_url, data=data)
-		except requests.exceptions.RequestException as e:
+			req = self._session.post(self._search_url, data=data)
+		except requests.exceptions.RequestException as err:
 			return result
 		else:
 			# Parse the response HTML here and check for an accepted name
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 			status = findBotanicalName(genus, soup, result)
 			if status is not None:
 				return status
@@ -160,13 +160,13 @@ class WCSP:
 						url = urljoin(self._search_url, href)
 
 						try:
-							r = self._session.get(url)
-						except requests.exceptions.RequestException as e:
-							print(str(e))
+							req = self._session.get(url)
+						except requests.exceptions.RequestException as err:
+							print(str(err))
 							return result
 						else:
 							# Parse the response HTML here and check for an accepted name
-							soup = BeautifulSoup(r.text, "lxml")
+							soup = BeautifulSoup(req.text, "lxml")
 							status = findBotanicalName(genus, soup, result)
 							if status is not None:
 								return status

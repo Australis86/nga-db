@@ -75,8 +75,8 @@ class GBIF:
 		pwd = getpass.getpass()
 
 		# Test the credentials
-		r = requests.get("https://api.checklistbank.org/user/me", auth=HTTPBasicAuth(user, pwd), headers={'accept': 'application/json'})
-		if r.status_code != 200:
+		req = requests.get("https://api.checklistbank.org/user/me", auth=HTTPBasicAuth(user, pwd), headers={'accept': 'application/json'})
+		if req.status_code != 200:
 			raise PermissionError("Failed to authenticate with the COL API.")
 
 		print("Successfully tested authentication.")
@@ -107,11 +107,11 @@ class COL(GBIF):
 
 		# First step is to get the taxon ID, then fetch the synonyms if required
 		try:
-			r = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
-		except requests.exceptions.RequestException as e:
+			req = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
+		except requests.exceptions.RequestException as err:
 			return [None, 'Error retrieving taxon']
 		else:
-			rdata = r.json()
+			rdata = req.json()
 			if rdata['empty']:
 				# No match found
 				return [None, 'No match found in COL']
@@ -122,9 +122,9 @@ class COL(GBIF):
 				for result in rdata['result']:
 					# Need to make sure we're only using entries from the plant kingdom
 					kingdom = False
-					for c in result['classification']:
-						if 'rank' in c and c['rank'] == 'kingdom':
-							if c['name'] == 'Plantae':
+					for cls in result['classification']:
+						if 'rank' in cls and cls['rank'] == 'kingdom':
+							if cls['name'] == 'Plantae':
 								kingdom = True
 
 					rstatus = result['usage']['status'].lower()
@@ -142,17 +142,17 @@ class COL(GBIF):
 
 			if fetch_synonyms:
 				# Get the taxon ID so that we can get the synonyms
-				taxonID = closest['id']
+				taxon_id = closest['id']
 				dataset_key = closest['usage']['datasetKey']
 
 				# Post to the asynchronous API (this requests a build of an export)
 				try:
-					r = self._session.get(self._synonym_url % (dataset_key, taxonID), auth=self._auth, headers={"Content-Type": "application/json"})
-				except requests.exceptions.RequestException as e:
+					req = self._session.get(self._synonym_url % (dataset_key, taxon_id), auth=self._auth, headers={"Content-Type": "application/json"})
+				except requests.exceptions.RequestException as err:
 					return [None, 'Unable to retrieve synonyms from COL']
 				else:
 					synonyms = []
-					rdata = r.json()
+					rdata = req.json()
 
 					# Check if there are any synonyms
 					if not rdata:
@@ -241,51 +241,51 @@ class DCA(GBIF):
 
 		# First step is to get the taxon ID, then use that to retrieve the DwC-A export
 		try:
-			r = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
-		except requests.exceptions.RequestException as e:
+			req = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
+		except requests.exceptions.RequestException as err:
 			return (None, 'Unable to retrieve taxon ID.')
 		else:
-			rdata = r.json()
-			taxonID = None
+			rdata = req.json()
+			taxon_id = None
 
 			if 'total' in rdata and rdata['total'] == 0:
 				return (None, 'No matches found in COL search.')
 
-			for r in rdata['result']:
-				for c in r['classification']:
-					if 'rank' in c and c['rank'] == 'kingdom':
-						if c['name'] == 'Plantae':
-							dataset_key = r['usage']['datasetKey']
-							taxonID = r['id']
+			for res in rdata['result']:
+				for cls in res['classification']:
+					if 'rank' in cls and cls['rank'] == 'kingdom':
+						if cls['name'] == 'Plantae':
+							dataset_key = res['usage']['datasetKey']
+							taxon_id = res['id']
 							break
 
-			if taxonID is None:
+			if taxon_id is None:
 				return (None, 'No matches in the Plant kingdom found in COL search.')
 
 			# Prepare the export data
-			data = {"format":"DWCA", "root":{"id":taxonID}, "synonyms": True}
+			data = {"format":"DWCA", "root":{"id":taxon_id}, "synonyms": True}
 
 			# Post to the asynchronous API (this requests a build of an export)
 			try:
-				r = self._session.post(self._export_request_url % dataset_key, auth=self._auth, data=json.dumps(data), headers={"Content-Type": "application/json"})
-			except requests.exceptions.RequestException as e:
+				req = self._session.post(self._export_request_url % dataset_key, auth=self._auth, data=json.dumps(data), headers={"Content-Type": "application/json"})
+			except requests.exceptions.RequestException as err:
 				return (None, 'Unable to request build of the Darwin Core Archive.')
 			else:
 				# This should return the export key that can be used to fetch the ZIP file
-				rdata = r.json()
+				rdata = req.json()
 
 				# Fetch the export
 				try:
-					r = self._session.get(self._export_retrieve_url % rdata, auth=self._auth, headers={"Accept": "application/octet-stream, application/zip"}, stream=True)
-				except requests.exceptions.RequestException as e:
+					req = self._session.get(self._export_retrieve_url % rdata, auth=self._auth, headers={"Accept": "application/octet-stream, application/zip"}, stream=True)
+				except requests.exceptions.RequestException as err:
 					return (None, None)
 				else:
-					if r.status_code != 200:
-						return (None, 'HTTP Error %s was returned when attempting to fetch the Darwin Core Archive.' % r.status_code)
+					if req.status_code != 200:
+						return (None, 'HTTP Error %s was returned when attempting to fetch the Darwin Core Archive.' % req.status_code)
 
 					# Write out the file stream received
 					with open(zpath, 'wb') as output:
-						for chunk in r.iter_content(1024):
+						for chunk in req.iter_content(1024):
 							output.write(chunk)
 
 				# If the zip file successfully downloaded and is a valid zipfile, extract it
@@ -364,7 +364,7 @@ class DCA(GBIF):
 					# Create the temporary SQL file (based on provided SQLite import script)
 					sqlcat = os.path.join(tmpdir, 'sqlite3init.cat')
 					cf = open(sqlcat, 'w')
-					cf.writelines('%s\n' % c for c in commands)
+					cf.writelines('%s\n' % comm for comm in commands)
 					cf.close()
 
 					# Create the SQL database
@@ -375,9 +375,9 @@ class DCA(GBIF):
 					cur = conn.cursor()
 
 					# Try to create the tables
-					c = open(os.path.join(script_path,'create-DCA-tables.sql'), 'r')
-					cs = c.read()
-					c.close()
+					file_desc = open(os.path.join(script_path,'create-DCA-tables.sql'), 'r')
+					cs = file_desc.read()
+					file_desc.close()
 
 					queries = cs.split(';')
 					for q in queries:
@@ -396,7 +396,7 @@ class DCA(GBIF):
 
 							# Must quote column names, since keywords 'order' and 'references' are used
 							query = 'INSERT INTO %s({0}) VALUES ({1})' % t[1]
-							query = query.format(','.join(['"%s"' % c for c in columns]), ','.join('?' * len(columns)))
+							query = query.format(','.join(['"%s"' % col for col in columns]), ','.join('?' * len(columns)))
 
 							# Import each row
 							for row in reader:
@@ -451,8 +451,8 @@ def testExport(genus='Cymbidium', cache_path="./"):
 	try:
 		print("Testing exception handling...")
 		myDCA.fetchGenus(genus) # Prove the exception works
-	except ValueError as e:
-		print(str(e))
+	except ValueError as err:
+		print(str(err))
 	myDCA.setCache(cache_path)
 	myDCA.setCacheAge(timedelta(seconds=1))
 	myDCA.fetchGenus(genus)

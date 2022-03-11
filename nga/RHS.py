@@ -82,12 +82,12 @@ class Register:
 		"""Given a RHS URL, retrieve the RHS entry from the website."""
 
 		try:
-			r = self._session.get(url)
-		except requests.exceptions.RequestException as e:
+			req = self._session.get(url)
+		except requests.exceptions.RequestException as err:
 			print("Unable to retrieve RHS entry.")
 		else:
 			# Parse the returned HTML
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 			tables = soup.findAll('table', {'class':'results'})
 			grex = {}
 
@@ -238,12 +238,12 @@ class Register:
 					return {'matched':False, 'matches':None, 'source':'db', 'pod_parent':None, 'pollen_parent':None}
 
 		try:
-			r = self._session.get(self._search_url, params=url_params)
-		except requests.exceptions.RequestException as e:
+			req = self._session.get(self._search_url, params=url_params)
+		except requests.exceptions.RequestException as err:
 			return None
 		else:
 			# Parse the returned HTML
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 			page_nav = soup.find('div', {'class':'pagination'})
 
 			# The first page
@@ -260,12 +260,12 @@ class Register:
 						link = anchor['href']
 
 						try:
-							r = self._session.get(urljoin(self._search_url, link))
-						except requests.exceptions.RequestException as e:
+							req = self._session.get(urljoin(self._search_url, link))
+						except requests.exceptions.RequestException as err:
 							return None
 						else:
 							# Parse the returned HTML
-							soup = BeautifulSoup(r.text, "lxml")
+							soup = BeautifulSoup(req.text, "lxml")
 							results = self.__parseSearchResults(soup, genus, grex, results)
 							results['matched'] = grex in results['matches']
 							if results['matched']:
@@ -291,10 +291,10 @@ def testModule(database='./RHS.db'):
 	myRHS = Register()
 	print("Creating database file %s" % database)
 	myRHS.dbConnect(database)
-	r = myRHS.search('Cymbidium','Pearl',True)
+	req = myRHS.search('Cymbidium','Pearl',True)
 	myRHS.dbClose()
-	if r is not None:
-		if r['matched']:
+	if req is not None:
+		if req['matched']:
 			print("You may now examine the contents of the test database.")
 		else:
 			print("Failed to find a known valid grex in the RHS database.")

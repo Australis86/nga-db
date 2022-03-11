@@ -129,15 +129,15 @@ class NGA:
 
 		# Get the login page
 		print("Fetching authentication page...")
-		r = self._session.get(self._auth_url)
+		req = self._session.get(self._auth_url)
 
-		if r.status_code != 200:
+		if req.status_code != 200:
 			# Failed to retrieve the login page
 			raise ConnectionError("Unable to successfully retrieve authentication page.")
 
 		# Successfully retrieved the login page
 		target = urljoin(self._home_url, '/i/ajax/users/login_check.php')
-		soup = BeautifulSoup(r.text, "lxml")
+		soup = BeautifulSoup(req.text, "lxml")
 
 		# Find the redirect address
 		redirect_url = soup.find(id='login_redirect')['value']
@@ -152,13 +152,13 @@ class NGA:
 		form_data['p'] = getpass.getpass()
 
 		# POST the form data
-		r = self._session.post(target, data=form_data)
+		req = self._session.post(target, data=form_data)
 
 		# Successfully authenticated
-		if r.status_code == 200 and "1" in r.text:
+		if req.status_code == 200 and "1" in req.text:
 
 			# Redirect to the logged in page
-			r = self._session.get(redirect)
+			req = self._session.get(redirect)
 
 			# Retrieve the cookies and ensure we have valid credentials
 			c = self._session.cookies.get_dict()
@@ -302,13 +302,13 @@ class NGA:
 			params = {}
 
 		try:
-			r = self._session.get(self._genus_url % genus, params=params)
-		except requests.exceptions.RequestException as e:
+			req = self._session.get(self._genus_url % genus, params=params)
+		except requests.exceptions.RequestException as err:
 			print("\nError retrieving NGA database page for genus %s. Cannot continue." % genus)
 			sys.exit(1)
 		else:
 			# Parse the returned HTML
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 			return soup
 
 		return None
@@ -351,7 +351,7 @@ class NGA:
 							if num > npages:
 								npages = num
 
-						except ValueError as e:
+						except ValueError as err:
 							pass
 
 			# If increment is still None at this stage, then there is only one page
@@ -378,18 +378,18 @@ class NGA:
 		params = {'q':search_term}
 
 		try:
-			r = self._session.get(self._search_url, params=params)
-		except requests.exceptions.RequestException as e:
+			req = self._session.get(self._search_url, params=params)
+		except requests.exceptions.RequestException as err:
 			if not recursed:
 				time.sleep(self._recursion_delay)
 				return self.search(search_term, True)
 			else:
 				print("Error retrieving NGA search results for %s." % search_term)
-				print(str(e))
+				print(str(err))
 				return None
 		else:
 			# Parse the returned HTML
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 			caption = soup.find('caption',string="Search Results")
 
 			# If there are search results, then the caption will exist
@@ -497,10 +497,10 @@ class NGA:
 		planturl = urljoin(self._home_url, plant['url'])
 
 		try:
-			r = self._session.get(planturl)
-		except requests.exceptions.RequestException as e:
+			req = self._session.get(planturl)
+		except requests.exceptions.RequestException as err:
 			print("Error retrieving NGA plant entry for %s." % plant['full_name'])
-			print(str(e))
+			print(str(err))
 			return None
 		else:
 			# Storage for relevant fields
@@ -510,7 +510,7 @@ class NGA:
 			}
 
 			# Parse the returned HTML
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 
 			# Look for class "card-header", as this is used for the common names, botanical names, conservation status, images and comments
 			cards = soup.findAll('div', {'class':'card-header'})
@@ -536,18 +536,18 @@ class NGA:
 		planturl = urljoin(self._home_url, plant['url'])
 
 		try:
-			r = self._session.get(planturl)
-		except requests.exceptions.RequestException as e:
+			req = self._session.get(planturl)
+		except requests.exceptions.RequestException as err:
 			if not recursed:
 				time.sleep(self._recursion_delay)
 				return self.checkParentageField(plant, True)
 			else:
 				print("Error retrieving NGA plant entry for %s." % plant['full_name'])
-				print(str(e))
+				print(str(err))
 				return None
 		else:
 			# Parse the returned HTML
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 			parentage = soup.find('b', string=re.compile('Parentage'))
 
 			return parentage is not None
@@ -564,13 +564,13 @@ class NGA:
 			- None otherwise"""
 
 		try:
-			r = self._session.post(url, data=data)
-		except requests.exceptions.RequestException as e:
-			print("Failed to submit proposal", str(e))
+			req = self._session.post(url, data=data)
+		except requests.exceptions.RequestException as err:
+			print("Failed to submit proposal", str(err))
 			return None
 		else:
 			# Parse the returned HTML
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 			confirmation = soup.findAll('a', attrs={'href': re.compile("approve")})
 			alert = soup.findAll('div', attrs={'class': 'alert-danger'})
 
@@ -580,13 +580,13 @@ class NGA:
 					suburl = urljoin(self._home_url, subpage)
 
 					try:
-						r = self._session.get(suburl)
-					except requests.exceptions.RequestException as e:
-						print("Failed to approve proposal", str(e))
-						print(str(e))
+						req = self._session.get(suburl)
+					except requests.exceptions.RequestException as err:
+						print("Failed to approve proposal", str(err))
+						print(str(err))
 						return False
 					else:
-						soup = BeautifulSoup(r.text, "lxml")
+						soup = BeautifulSoup(req.text, "lxml")
 						approved1 = soup.findAll('div', {'class':'alert-success'}) # Used for approvals via queue
 						approved2 = soup.findAll('a', attrs={'href': re.compile("/plants/view/")}) # Only used for direct path of new plant proposals
 
@@ -610,19 +610,19 @@ class NGA:
 		"""Check to see if a new plant proposal exists. Requires admin rights."""
 
 		try:
-			r = self._session.get(self._new_proposals_url)
-		except requests.exceptions.ConnectionError as e:
+			req = self._session.get(self._new_proposals_url)
+		except requests.exceptions.ConnectionError as err:
 			if not recursed:
 				time.sleep(1)
 				return self.fetchNewProposals(True)
 			else:
-				print(str(e))
+				print(str(err))
 				return None
-		except requests.exceptions.RequestException as e:
-			print(str(e))
+		except requests.exceptions.RequestException as err:
+			print(str(err))
 			return None
 		else:
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 			ptable = soup.find("table", {"id":"table"})
 			proposals = soup.findAll('tr')
 			pending = {}
@@ -667,12 +667,12 @@ class NGA:
 		}
 
 		try:
-			r = self._session.post(self._new_approvals_url, data=params)
-		except requests.exceptions.RequestException as e:
-			print("\tFailed to approval proposal", str(e))
+			req = self._session.post(self._new_approvals_url, data=params)
+		except requests.exceptions.RequestException as err:
+			print("\tFailed to approval proposal", str(err))
 		else:
 			# Parse the response
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 			approved = soup.findAll('a', attrs={'href': re.compile("/plants/view/")})
 
 			if approved and len(approved) > 0:
@@ -723,14 +723,14 @@ class NGA:
 		url = self._plant_name_url % plant['pid']
 
 		try:
-			r = self._session.get(url)
-		except requests.exceptions.RequestException as e:
+			req = self._session.get(url)
+		except requests.exceptions.RequestException as err:
 			print("Error retrieving NGA database name page for %s." % plant['full_name'])
-			print(str(e))
+			print(str(err))
 			return None
 		else:
 			# Parse the returned HTML
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 			form = soup.find('form', attrs={'method': 'post'})
 			data = OrderedDict() # This is crucial. New fields are processed server-side in the order that they are added.
 
@@ -867,14 +867,14 @@ class NGA:
 		url = self._plant_name_url % plant['pid']
 
 		try:
-			r = self._session.get(url)
-		except requests.exceptions.RequestException as e:
+			req = self._session.get(url)
+		except requests.exceptions.RequestException as err:
 			print("Error retrieving NGA database name page for %s." % plant['full_name'])
-			print(str(e))
+			print(str(err))
 			return None
 		else:
 			# Parse the returned HTML
-			soup = BeautifulSoup(r.text, "lxml")
+			soup = BeautifulSoup(req.text, "lxml")
 			form = soup.find('form', attrs={'method': 'post'})
 			data = OrderedDict() # This is crucial. New fields are processed server-side in the order that they are added.
 
@@ -1029,14 +1029,14 @@ class NGA:
 			url = self._plant_data_url % plant['pid']
 
 			try:
-				r = self._session.get(url)
-			except requests.exceptions.RequestException as e:
+				req = self._session.get(url)
+			except requests.exceptions.RequestException as err:
 				print("Error retrieving NGA database databox page for %s." % plant['full_name'])
-				print(str(e))
+				print(str(err))
 				return None
 			else:
 				# Parse the returned HTML
-				soup = BeautifulSoup(r.text, "lxml")
+				soup = BeautifulSoup(req.text, "lxml")
 				form = soup.find('form', attrs={'method': 'post'})
 				data = OrderedDict() # This is crucial. New fields are processed server-side in the order that they are added.
 

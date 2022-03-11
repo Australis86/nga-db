@@ -174,17 +174,17 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		if 'x' in fields:
 			fields.remove('x') # Remove the hybrid flag, as the COL doesn't use this
 			nga_hyb = True
-		fn = len(fields)
+		fcount = len(fields)
 
 		if dca_db is not None:
 			# Prepare the SQL query
-			if fn == 2:
+			if fcount == 2:
 				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE genericName=? AND specificEpithet=? AND upper(taxonRank)='SPECIES' AND (infraspecificEpithet='' OR infraspecificEpithet IS NULL) GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
 				params = (fields[0], fields[1])
-			elif fn == 4:
+			elif fcount == 4:
 				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID  WHERE genericName=? AND specificEpithet=? AND taxonRank=? AND infraspecificEpithet=? GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
 				params = (fields[0], fields[1], fields[2], fields[3])
-			elif fn == 3:
+			elif fcount == 3:
 				# Check if it's missing the infraspecific qualifer
 				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID  WHERE genericName=? AND specificEpithet=? AND infraspecificEpithet=? GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
 				params = (fields[0], fields[1], fields[2])
@@ -389,8 +389,6 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			# If the Levenshtein module is available, we can get the distance between an accepted species and the NGA entry
 			# Allows us to check for typos/spelling mistakes
 			if Levenshtein is not None and dca_db is not None:
-				matched = False
-
 				# Get the list of taxa
 				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' ELSE 'var.' END || ' ' || infraspecificEpithet as epithet, taxonomicStatus, acceptedNameUsageID from Taxon GROUP BY epithet"
 				cur.execute(sql)
@@ -398,7 +396,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				# Iterate through the names and compare to the entry from the NGA`
 				closest_match = None
 				closest_status = None
-				closest_id = None
+				#closest_id = None
 				last_ratio = 0
 
 				for row in cur:
@@ -408,7 +406,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 						last_ratio = ratio
 						closest_match = taxon
 						closest_status = row[1]
-						closest_id = row[2]
+						#closest_id = row[2]
 
 				# For really short names, allowing a lower ratio as long as there is only 1 character different and 2 in length (accommodates gender changes)
 				diffs = sum(1 for a, b in zip(closest_match, search_name) if a != b)
@@ -461,9 +459,8 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		conn.close()
 
 		# Iterate through all the accepted names
-		print
 		progress = 0.0
-		t = len(rows)
+		taxa = len(rows)
 		nga_dataset_additions = []
 
 		if nga_db is None:
@@ -471,7 +468,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 		for row in rows:
 			progress += 1.0
-			sys.stdout.write('\rChecking COL records... %00.1f%%' % (100.0*progress/t))
+			sys.stdout.write('\rChecking COL records... %00.1f%%' % (100.0*progress/taxa))
 			sys.stdout.flush()
 
 			entry = row[0].strip() # Full botanical name
@@ -577,7 +574,7 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 		nga_db = nga.NGA.NGA()
 
 	# Regular expression object for matching clonal names in entries
-	cn = re.compile("\s'.*'$")
+	clones_regex = re.compile("\s'.*'$")
 
 	# Iterate through all the genera (all the single-word keys)
 	for genus in genera:
@@ -605,7 +602,7 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 				grex = hybrid
 			else:
 				# Might be a mis-entered grex or a grex with clonal name
-				m = cn.search(hybrid)
+				m = clones_regex.search(hybrid)
 				if m is not None:
 					grex = hybrid[:m.start()]
 				else:
@@ -622,20 +619,20 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 			grex = grex.strip()
 
 			# Search the RHS for the entry
-			r = rhs_engine.search(genus, grex)
+			rhs = rhs_engine.search(genus, grex)
 
-			if r is None:
+			if rhs is None:
 				print("Error retrieving RHS results for",genus,grex)
 
 			else:
 				# Update the object in the dataset
-				hybrids[hybrid]['registered'] = r['matched']
+				hybrids[hybrid]['registered'] = rhs['matched']
 				hybrids[hybrid]['parentage'] = None
 
 				# Populate parentage field
-				if r['matched']:
+				if rhs['matched']:
 					hybrids[hybrid]['remove_quotes'] = hybrids[hybrid]['has_quotes']
-					hybrids[hybrid]['parentage'] = nga_db.formatParentage(genus, r)
+					hybrids[hybrid]['parentage'] = nga_db.formatParentage(genus, rhs)
 
 					if parentage_check:
 						# Check if the NGA page has the parentage field populated
@@ -974,7 +971,7 @@ def main(namespace_args):
 	# Ensure the cache directory exists
 	try:
 		os.makedirs(args.cache)
-	except FileExistsError as e:
+	except FileExistsError:
 		pass
 
 	# Fetch latest genus data from the Darwin Core Archive
