@@ -30,7 +30,7 @@ from bs4 import BeautifulSoup
 class NGA:
 	"""Create a user-friendly API for the NGA website's Plants Database."""
 
-	def __createSession(self):
+	def _createSession(self):
 		"""Create a requests session."""
 
 		self._session = requests.Session()
@@ -58,23 +58,26 @@ class NGA:
 			self._cookiepath = NGA_COOKIE
 		else:
 			self._cookiepath = os.path.join(os.path.expanduser('~'), '.nga')
-		self.__NGAcookie = requests.cookies.RequestsCookieJar()
+		self._NGAcookie = requests.cookies.RequestsCookieJar()
 
 		# Create the session
-		self.__createSession()
+		self._createSession()
 
 		# This will look for a JSON file containing authentication info for the website
 		# If it exists, it will load it and use it for the session
-		self.__loadCookieArchive(self._cookiepath)
+		self._loadCookieArchive(self._cookiepath)
 
-		self._session.cookies = self.__NGAcookie
+		self._session.cookies = self._NGAcookie
 		self._session.get(self._home_url)
 
 		# Delay to wait before hitting NGA servers again if the connection failed
 		self._recursion_delay = 1
 
+		# Declare attributes
+		self._genus_results = {}
 
-	def __loadCookieArchive(self, cookiepath):
+
+	def _loadCookieArchive(self, cookiepath):
 		"""Load a JSON file containing cookies for the NGA website."""
 
 		if os.path.exists(cookiepath):
@@ -84,7 +87,7 @@ class NGA:
 			# Try to read the JSON string and set the cookie parameters
 			try:
 				cookie = json.load(file_desc)
-				self.__NGAcookie.set('gojwt', cookie['gojwt'], domain='garden.org', path='/')
+				self._NGAcookie.set('gojwt', cookie['gojwt'], domain='garden.org', path='/')
 
 			except Exception as err:
 				# We must have a valid cookie file, or the NGA site will block us`
@@ -97,10 +100,10 @@ class NGA:
 		else:
 			# We must have a valid cookie file, or the NGA site will block us`
 			print(f'Cookie archive {cookiepath} not found. A valid cookie file is required to use this script.')
-			self.__startAuthSession()
+			self._startAuthSession()
 
 
-	def __storeCookieArchive(self, cookiejson):
+	def _storeCookieArchive(self, cookiejson):
 		"""Store a JSON file containing cookies for the NGA website."""
 
 		# Open the file for writing
@@ -121,11 +124,11 @@ class NGA:
 		file_desc.close()
 
 
-	def __startAuthSession(self):
+	def _startAuthSession(self):
 		"""Authenticate with the NGA website."""
 
 		# Create the session
-		self.__createSession()
+		self._createSession()
 
 		# Get the login page
 		print("Fetching authentication page...")
@@ -163,8 +166,8 @@ class NGA:
 			# Retrieve the cookies and ensure we have valid credentials
 			cookie = self._session.cookies.get_dict()
 			if 'gojwt' in cookie:
-				self.__NGAcookie = self._session.cookies
-				self.__storeCookieArchive(cookie)
+				self._NGAcookie = self._session.cookies
+				self._storeCookieArchive(cookie)
 				print("Successfully authenticated.")
 			else:
 				raise PermissionError("Failed to login: session cookie not found.")
@@ -178,7 +181,7 @@ class NGA:
 		directory when you create an instance of the NGA class."""
 
 		self._session.cookies = None # Clear the existing cookies first
-		self.__loadCookieArchive(cookiepath)
+		self._loadCookieArchive(cookiepath)
 		self._session.get(self._home_url)
 
 
@@ -196,7 +199,7 @@ class NGA:
 		return obj
 
 
-	def __parseTableRow(self, row, cname_exclude=None):
+	def _parseTableRow(self, row, cname_exclude=None):
 		"""Extract the plant information from a row in the NGA genus or search results table."""
 
 		# Extract the second column, as this contains the entry name
@@ -254,23 +257,23 @@ class NGA:
 				for row in table.findAll('tr'):
 
 					# Extract the contents of the row
-					(botanic_name, cultivar_name, plant_data) = self.__parseTableRow(row, genus)
+					(botanic_name, cultivar_name, plant_data) = self._parseTableRow(row, genus)
 
 					if botanic_name is not None:
 						botanic_name = botanic_name.replace('  ',' ')
 
 						# Add entry to results
-						if botanic_name not in self.__genus_results:
-							self.__genus_results[botanic_name] = {}
+						if botanic_name not in self._genus_results:
+							self._genus_results[botanic_name] = {}
 
-						self.__genus_results[botanic_name][cultivar_name] = plant_data
+						self._genus_results[botanic_name][cultivar_name] = plant_data
 
 
 	def _parseGenusPages(self, pages, genus=None):
 		"""Parse a list of the BeautifulSoup object returned by the _fetchGenusPage function."""
 
 		# Initialise the dataset
-		self.__genus_results = {}
+		self._genus_results = {}
 
 		stdout.write("\rParsing NGA dataset...")
 		stdout.flush()
@@ -286,11 +289,11 @@ class NGA:
 			count += 1
 
 
-		n_entries = len(list(self.__genus_results))
+		n_entries = len(list(self._genus_results))
 		stdout.write(f'\rParsing NGA dataset... done. {n_entries:d} botanic name(s) found.\r\n')
 		stdout.flush()
 
-		return self.__genus_results
+		return self._genus_results
 
 
 	def _fetchGenusPage(self, genus, offset=None):
@@ -401,7 +404,7 @@ class NGA:
 
 				# Process all the rows and extract the botanic and cultivar names
 				for row in rows:
-					(botanic_name, cultivar_name, plant_data) = self.__parseTableRow(row)
+					(botanic_name, cultivar_name, plant_data) = self._parseTableRow(row)
 					if botanic_name not in botanic_entries:
 						botanic_entries[botanic_name] = {cultivar_name: plant_data}
 					else:
@@ -555,7 +558,7 @@ class NGA:
 		return None
 
 
-	def __submitProposal(self, url, data, auto_approve=True):
+	def _submitProposal(self, url, data, auto_approve=True):
 		"""Submit a proposal and try to approve it.
 
 		Returns:
@@ -704,7 +707,7 @@ class NGA:
 		}
 
 		# POST the data
-		self.__submitProposal(self._new_plant_url, params)
+		self._submitProposal(self._new_plant_url, params)
 
 
 	def proposeSynonymAddition(self, plant, synonym, common_name=None, auto_approve=True):
@@ -848,7 +851,7 @@ class NGA:
 			data['submit'] = 'Submit your proposed changes'
 
 			# POST the data
-			return self.__submitProposal(url, data, auto_approve)
+			return self._submitProposal(url, data, auto_approve)
 
 
 	def proposeNameChange(self, plant, common_name=None, auto_approve=True):
@@ -1015,7 +1018,7 @@ class NGA:
 			data['submit'] = 'Submit your proposed changes'
 
 			# POST the data
-			return self.__submitProposal(url, data, auto_approve)
+			return self._submitProposal(url, data, auto_approve)
 
 
 	def proposeDataUpdate(self, plant):
@@ -1080,7 +1083,7 @@ class NGA:
 				data['submit'] = 'Save and submit the proposal'
 
 				# POST the data and automatically approve the proposal
-				self.__submitProposal(url, data)
+				self._submitProposal(url, data)
 
 
 	def proposeMerge(self, old_plant, new_plant, reverse_order=False, auto_approve=True):
@@ -1120,7 +1123,7 @@ class NGA:
 			}
 
 			# POST the data
-			self.__submitProposal(url, params, auto_approve=auto_approve)
+			self._submitProposal(url, params, auto_approve=auto_approve)
 
 
 def testModule(cookiepath=None):

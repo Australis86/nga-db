@@ -28,7 +28,8 @@ class Register:
 		to the RHS Orchid Register."""
 
 		self._search_url = 'https://apps.rhs.org.uk/horticulturaldatabase/orchidregister/orchidresults.asp'
-		self.__dbconn = None
+		self._dbconn = None
+		self._columns = None
 
 		self._session = requests.Session()
 		self._session.get(self._search_url)
@@ -38,8 +39,8 @@ class Register:
 	def dbConnect(self, dbpath):
 		"""Initialise a SQLite DB for use with the cache."""
 
-		self.__dbconn = sqlite3.connect(dbpath)
-		self.__columns = ['uid','genus','epithet','synonym_genus','synonym_epithet',
+		self._dbconn = sqlite3.connect(dbpath)
+		self._columns = ['uid','genus','epithet','synonym_genus','synonym_epithet',
 			'registrant_name','originator_name','date_of_registration',
 			'pod_parent_genus','pod_parent_epithet','pollen_parent_genus','pollen_parent_epithet']
 
@@ -57,8 +58,8 @@ class Register:
 			pollen_parent_genus TEXT,
 			pollen_parent_epithet TEXT);'''
 
-		self.__dbconn.execute(sql)
-		self.__dbconn.commit()
+		self._dbconn.execute(sql)
+		self._dbconn.commit()
 
 		sql = '''CREATE TABLE IF NOT EXISTS invalid(
 			genus TEXT,
@@ -66,16 +67,16 @@ class Register:
 			attempts INTEGER,
 			PRIMARY KEY(genus, grex));'''
 
-		self.__dbconn.execute(sql)
-		self.__dbconn.commit()
+		self._dbconn.execute(sql)
+		self._dbconn.commit()
 
 
 	def dbClose(self):
 		"""Close any hanging database connection."""
 
-		if self.__dbconn:
-			self.__dbconn.commit()
-			self.__dbconn.close()
+		if self._dbconn:
+			self._dbconn.commit()
+			self._dbconn.close()
 
 
 	def _getGrex(self, url):
@@ -125,7 +126,7 @@ class Register:
 	def cacheGrex(self, url):
 		"""Given a RHS URL, cache the entry in the database."""
 
-		if self.__dbconn is not None:
+		if self._dbconn is not None:
 			grex = self._getGrex(url)
 
 			# If we have a response, we need to parse it and insert it into the database
@@ -138,15 +139,15 @@ class Register:
 					dataset[newkey] = grex[key]
 
 				# Make sure all necessary columns are present
-				for column in self.__columns:
+				for column in self._columns:
 					if column not in dataset:
 						dataset[column] = ''
 
 				# Insert this into the database
 				# Since the ID is the primary key, if there is a conflict only that row should be replaced
-				sql = '''INSERT OR REPLACE INTO registrations(%s) VALUES (%s)''' % (', '.join(self.__columns), ', '.join([':%s' % x for x in self.__columns]))
-				self.__dbconn.execute(sql, dataset)
-				self.__dbconn.commit()
+				sql = '''INSERT OR REPLACE INTO registrations(%s) VALUES (%s)''' % (', '.join(self._columns), ', '.join([':%s' % x for x in self._columns]))
+				self._dbconn.execute(sql, dataset)
+				self._dbconn.commit()
 
 				return dataset
 
@@ -159,11 +160,11 @@ class Register:
 	def cacheInvalidSearch(self, genus, grex):
 		"""Record invalid search terms so that we don't need to keep hitting the RHS database."""
 
-		if self.__dbconn is not None:
+		if self._dbconn is not None:
 
 			# Check if there is an existing entry in the database
 			sql = '''SELECT attempts FROM invalid WHERE genus=? AND grex=?'''
-			cur = self.__dbconn.execute(sql, (genus, grex))
+			cur = self._dbconn.execute(sql, (genus, grex))
 			results = cur.fetchall()
 
 			if results is not None and len(results) > 0:
@@ -173,14 +174,14 @@ class Register:
 
 			# Update the database
 			sql = '''INSERT OR REPLACE INTO invalid(genus, grex, attempts) VALUES (?, ?, ?)'''
-			self.__dbconn.execute(sql, (genus, grex, attempts))
-			self.__dbconn.commit()
+			self._dbconn.execute(sql, (genus, grex, attempts))
+			self._dbconn.commit()
 
 		else:
 			print("No active connection to the SQLite database.")
 
 
-	def __parseSearchResults(self, soup, genus, results):
+	def _parseSearchResults(self, soup, genus, results):
 		"""Parse a result page from the RHS search."""
 
 		rows = soup.findAll('tr')
@@ -219,9 +220,9 @@ class Register:
 		url_params = {'genus': genus, 'grex': grex.replace('[','(').replace(']',')')} # Substitute any brackets in the grex for parentheses
 
 		# First check to see if this entry is currently in the database cache
-		if self.__dbconn is not None and not force:
+		if self._dbconn is not None and not force:
 			sql = '''SELECT genus, epithet, pod_parent_genus, pod_parent_epithet, pollen_parent_genus, pollen_parent_epithet FROM registrations WHERE genus=:genus AND epithet=:grex'''
-			cur = self.__dbconn.execute(sql, db_params)
+			cur = self._dbconn.execute(sql, db_params)
 			rows = cur.fetchall()
 
 			if rows is not None and len(rows) > 0:
@@ -229,7 +230,7 @@ class Register:
 
 			# If this isn't registered and the number of search attempts exceeds the maximum, abort the attempt
 			sql = '''SELECT genus, grex, attempts FROM invalid WHERE genus=:genus AND grex=:grex'''
-			cur = self.__dbconn.execute(sql, db_params)
+			cur = self._dbconn.execute(sql, db_params)
 			rows = cur.fetchall()
 
 			if rows is not None and len(rows) > 0:
@@ -248,7 +249,7 @@ class Register:
 
 			# The first page
 			results = {'matched':False, 'matches':None, 'source':'web', 'pod_parent':None, 'pollen_parent':None}
-			results = self.__parseSearchResults(soup, genus, results)
+			results = self._parseSearchResults(soup, genus, results)
 			results['matched'] = grex in results['matches']
 
 			# If it's not matched and there are more pages, fetch those, too
@@ -266,13 +267,13 @@ class Register:
 						else:
 							# Parse the returned HTML
 							soup = BeautifulSoup(req.text, "lxml")
-							results = self.__parseSearchResults(soup, genus, results)
+							results = self._parseSearchResults(soup, genus, results)
 							results['matched'] = grex in results['matches']
 							if results['matched']:
 								break # No need to keep looping
 
 			# Automatically cache results
-			if self.__dbconn is not None:
+			if self._dbconn is not None:
 				if results['matched'] :
 					dataset = self.cacheGrex(results['matches'][grex])
 

@@ -20,4 +20,4 @@ jobs:
         pip install pylint bs4 lxml python-Levenshtein requests
     - name: Analyse the code with pylint
       run: |
-        pylint --module-naming-style='camelCase' --function-naming-style='camelCase' --method-naming-style='camelCase' --max-args=8 --max-module-lines=2000 --max-locals=20 --indent-string="t" --disable=R0903,W0311,C0301,R1702,R0902,R0911,R0912,R0914,R0915 $(git ls-files '*.py')
+        pylint --module-naming-style='any' --function-naming-style='camelCase' --method-naming-style='camelCase' --max-args=8 --max-module-lines=2000 --max-locals=20 --indent-string="t" --disable=R0903,W0311,C0301,R1702,R0902,R0911,R0912,R0914,R0915 $(git ls-files '*.py')

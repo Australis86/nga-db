@@ -42,14 +42,14 @@ class GBIF:
 			self._authpath = os.path.join(os.path.expanduser('~'), '.gbif')
 
 		# This will look for the GBIF credentials
-		self.__loadAuthFile(self._authpath)
+		self._loadAuthFile(self._authpath)
 
 
-	def __loadAuthFile(self, auth_file):
+	def _loadAuthFile(self, auth_file):
 		"""Load a file containing the user's GBIF account details."""
 
 		if not os.path.exists(auth_file):
-			self.__createAuthFile(auth_file)
+			self._createAuthFile(auth_file)
 
 		gbif = open(auth_file, 'r')
 		gbif_auth = gbif.read()
@@ -63,7 +63,7 @@ class GBIF:
 		self._auth = HTTPBasicAuth(username, password) # GBIF account
 
 
-	def __createAuthFile(self, auth_file):
+	def _createAuthFile(self, auth_file):
 		"""Store a set of authentication parameters."""
 
 		# Ask the user for their credentials
