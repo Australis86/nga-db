@@ -83,7 +83,7 @@ class Register:
 
 		try:
 			req = self._session.get(url)
-		except requests.exceptions.RequestException as err:
+		except requests.exceptions.RequestException:
 			print("Unable to retrieve RHS entry.")
 		else:
 			# Parse the returned HTML
@@ -112,8 +112,8 @@ class Register:
 				for row in tr:
 					fieldname = row.find('th')
 					fieldvalues = row.findAll('td')
-					grex['Pod Parent %s' % fieldname.text] = fieldvalues[0].text.replace('{var}','var.').replace('{subsp}','subsp.').replace('(','[').replace(')',']')
-					grex['Pollen Parent %s' % fieldname.text] = fieldvalues[1].text.replace('{var}','var.').replace('{subsp}','subsp.').replace('(','[').replace(')',']')
+					grex[f'Pod Parent {fieldname.text}'] = fieldvalues[0].text.replace('{var}','var.').replace('{subsp}','subsp.').replace('(','[').replace(')',']')
+					grex[f'Pollen Parent {fieldname.text}'] = fieldvalues[1].text.replace('{var}','var.').replace('{subsp}','subsp.').replace('(','[').replace(')',']')
 
 				# Finally, extract the RHS ID number from the URL
 				matches = re.findall(r'\d+', url)
@@ -180,7 +180,7 @@ class Register:
 			print("No active connection to the SQLite database.")
 
 
-	def __parseSearchResults(self, soup, genus, grex, results):
+	def __parseSearchResults(self, soup, genus, results):
 		"""Parse a result page from the RHS search."""
 
 		tr = soup.findAll('tr')
@@ -239,7 +239,7 @@ class Register:
 
 		try:
 			req = self._session.get(self._search_url, params=url_params)
-		except requests.exceptions.RequestException as err:
+		except requests.exceptions.RequestException:
 			return None
 		else:
 			# Parse the returned HTML
@@ -248,7 +248,7 @@ class Register:
 
 			# The first page
 			results = {'matched':False, 'matches':None, 'source':'web', 'pod_parent':None, 'pollen_parent':None}
-			results = self.__parseSearchResults(soup, genus, grex, results)
+			results = self.__parseSearchResults(soup, genus, results)
 			results['matched'] = grex in results['matches']
 
 			# If it's not matched and there are more pages, fetch those, too
@@ -266,7 +266,7 @@ class Register:
 						else:
 							# Parse the returned HTML
 							soup = BeautifulSoup(req.text, "lxml")
-							results = self.__parseSearchResults(soup, genus, grex, results)
+							results = self.__parseSearchResults(soup, genus, results)
 							results['matched'] = grex in results['matches']
 							if results['matched']:
 								break # No need to keep looping
@@ -288,11 +288,11 @@ class Register:
 def testModule(database='./RHS.db'):
 	"""A simple test to check that all functions are working correctly.
 	Uses a known registered and valid grex."""
-	myRHS = Register()
-	print("Creating database file %s" % database)
-	myRHS.dbConnect(database)
-	req = myRHS.search('Cymbidium','Pearl',True)
-	myRHS.dbClose()
+	my_rhs = Register()
+	print(f'Creating database file {database}')
+	my_rhs.dbConnect(database)
+	req = my_rhs.search('Cymbidium','Pearl',True)
+	my_rhs.dbClose()
 	if req is not None:
 		if req['matched']:
 			print("You may now examine the contents of the test database.")

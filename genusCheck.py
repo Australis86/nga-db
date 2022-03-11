@@ -145,7 +145,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 	for botanical_name in entries:
 		iteration += 1
 		percentage = 100.0*(iteration/num_names)
-		sys.stdout.write('\rChecking NGA botanical entries... %00.1f%%' % percentage)
+		sys.stdout.write(f'\rChecking NGA botanical entries... {percentage:00.1f}%')
 		sys.stdout.flush()
 
 		# Hybrid flags
@@ -468,7 +468,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 		for row in rows:
 			progress += 1.0
-			sys.stdout.write('\rChecking COL records... %00.1f%%' % (100.0*progress/taxa))
+			sys.stdout.write(f'\rChecking COL records... {(100.0*progress/taxa):00.1f}%')
 			sys.stdout.flush()
 
 			entry = row[0].strip() # Full botanical name
@@ -574,7 +574,7 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 		nga_db = nga.NGA.NGA()
 
 	# Regular expression object for matching clonal names in entries
-	clones_regex = re.compile("\s'.*'$")
+	clones_regex = re.compile(r"\s'.*'$")
 
 	# Iterate through all the genera (all the single-word keys)
 	for genus in genera:
@@ -675,8 +675,8 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 		if len(genera) > 1:
 			print("Identified Genera:", ', '.join(genera))
 
-		for genus in genera:
-			entries.remove(genus)
+		for gen in genera:
+			entries.remove(gen)
 	else:
 		print("Missing genus-level entry for",genus)
 		genera = []
@@ -901,7 +901,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 		for new_name in additions:
 			# Check if there is an existing proposal first
-			pid = nga_db.checkNewProposal(pending, new_name, common_name)
+			pid = nga_db.checkNewProposal(pending, new_name)
 			if pid is not None:
 				print('    ',new_name,f'[proposal {pid}]')
 			else:
@@ -970,14 +970,14 @@ def main(namespace_args):
 
 	# Ensure the cache directory exists
 	try:
-		os.makedirs(args.cache)
+		os.makedirs(namespace_args.cache)
 	except FileExistsError:
 		pass
 
 	# Fetch latest genus data from the Darwin Core Archive
 	darwin_core = nga.COL.DCA()
-	darwin_core.setCache(args.cache)
-	dca_cache = darwin_core.fetchGenus(args.genus)
+	darwin_core.setCache(namespace_args.cache)
+	dca_cache = darwin_core.fetchGenus(namespace_args.genus)
 
 	#if dca_cache is None:
 	#	print("Error: unable to continue without current genus dataset.")
@@ -985,23 +985,23 @@ def main(namespace_args):
 
 	# Fetch current NGA database list
 	nga_db = nga.NGA.NGA()
-	nga_dataset = nga_db.fetchGenus(args.genus)
+	nga_dataset = nga_db.fetchGenus(namespace_args.genus)
 
 	if nga_dataset is None:
 		print("Error: unable to continue without NGA dataset.")
 		sys.exit(1)
 
 	# Compare the datasets
-	(nga_dataset, genera) = compareDatasets(args.genus, dca_cache, nga_dataset, nga_db, args.orchids, args.parentage)
+	(nga_dataset, genera) = compareDatasets(namespace_args.genus, dca_cache, nga_dataset, nga_db, namespace_args.orchids, namespace_args.parentage)
 
 	# For Orchids, set the common name
-	if args.orchids:
+	if namespace_args.orchids:
 		common_name = 'Orchid'
 	else:
-		common_name = args.name
+		common_name = namespace_args.name
 
 	# Display the recommended changes and implement them
-	processDatasetChanges(genera, nga_dataset, nga_db, common_name, args.propose, args.existing)
+	processDatasetChanges(genera, nga_dataset, nga_db, common_name, namespace_args.propose, namespace_args.existing)
 
 
 if __name__ == '__main__':

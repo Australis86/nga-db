@@ -88,7 +88,7 @@ class NGA:
 
 			except Exception as err:
 				# We must have a valid cookie file, or the NGA site will block us`
-				print("Error loading cookie archive %s. A valid cookie file is required to use this script." % cookiepath)
+				print(f'Error loading cookie archive {cookiepath}. A valid cookie file is required to use this script.')
 
 				# Re-raise the exception
 				raise err
@@ -96,7 +96,7 @@ class NGA:
 			file_desc.close()
 		else:
 			# We must have a valid cookie file, or the NGA site will block us`
-			print("Cookie archive %s not found. A valid cookie file is required to use this script." % cookiepath)
+			print(f'Cookie archive {cookiepath} not found. A valid cookie file is required to use this script.')
 			self.__startAuthSession()
 
 
@@ -113,7 +113,7 @@ class NGA:
 
 		except Exception as err:
 			# We must have a valid cookie file, or the NGA site will block us`
-			print("Error writing cookie archive %s. A valid cookie file is required to use this script." % cookiepath)
+			print(f'Error writing cookie archive {cookiepath}. A valid cookie file is required to use this script.')
 
 			# Re-raise the exception
 			raise err
@@ -279,7 +279,7 @@ class NGA:
 		count = 1
 
 		for page in pages:
-			stdout.write("\rParsing NGA dataset... %d/%d" % (count, total))
+			stdout.write(f'\rParsing NGA dataset... {count:d}/{total:d}')
 			stdout.flush()
 
 			self._parseGenusPage(page, genus)
@@ -287,7 +287,7 @@ class NGA:
 
 
 		n_entries = len(list(self.__genus_results))
-		stdout.write("\rParsing NGA dataset... done. %d botanic name(s) found.\r\n" % n_entries)
+		stdout.write(f'\rParsing NGA dataset... done. {n_entries:d} botanic name(s) found.\r\n')
 		stdout.flush()
 
 		return self.__genus_results
@@ -303,8 +303,8 @@ class NGA:
 
 		try:
 			req = self._session.get(self._genus_url % genus, params=params)
-		except requests.exceptions.RequestException as err:
-			print("\nError retrieving NGA database page for genus %s. Cannot continue." % genus)
+		except requests.exceptions.RequestException:
+			print(f'\nError retrieving NGA database page for genus {genus}. Cannot continue.')
 			sys.exit(1)
 		else:
 			# Parse the returned HTML
@@ -360,7 +360,7 @@ class NGA:
 
 				# Tested adding multithreading here, but it doesn't provide enough of a benefit
 				for page in range(1, npages):
-					stdout.write("\rRetrieving NGA dataset... %d/%d" % (page+1, npages))
+					stdout.write(f'\rRetrieving NGA dataset... {page+1:d}/{npages:d}')
 					stdout.flush()
 					genus_pages.append(self._fetchGenusPage(genus, page*increment))
 
@@ -384,7 +384,7 @@ class NGA:
 				time.sleep(self._recursion_delay)
 				return self.search(search_term, True)
 			else:
-				print("Error retrieving NGA search results for %s." % search_term)
+				print(f'Error retrieving NGA search results for {search_term}.')
 				print(str(err))
 				return None
 		else:
@@ -499,7 +499,7 @@ class NGA:
 		try:
 			req = self._session.get(planturl)
 		except requests.exceptions.RequestException as err:
-			print("Error retrieving NGA plant entry for %s." % plant['full_name'])
+			print(f'Error retrieving NGA plant entry for {plant["full_name"]}.')
 			print(str(err))
 			return None
 		else:
@@ -542,7 +542,7 @@ class NGA:
 				time.sleep(self._recursion_delay)
 				return self.checkParentageField(plant, True)
 			else:
-				print("Error retrieving NGA plant entry for %s." % plant['full_name'])
+				print(f'Error retrieving NGA plant entry for {plant["full_name"]}.')
 				print(str(err))
 				return None
 		else:
@@ -623,7 +623,7 @@ class NGA:
 			return None
 		else:
 			soup = BeautifulSoup(req.text, "lxml")
-			ptable = soup.find("table", {"id":"table"})
+			#ptable = soup.find("table", {"id":"table"})
 			proposals = soup.findAll('tr')
 			pending = {}
 
@@ -649,7 +649,7 @@ class NGA:
 			return pending
 
 
-	def checkNewProposal(self, pending, botanic_name, common_name=None):
+	def checkNewProposal(self, pending, botanic_name):
 		"""Check to see if a new plant proposal exists. Requires admin rights."""
 
 		if pending is not None:
@@ -684,9 +684,11 @@ class NGA:
 	def proposeNewPlant(self, botanic_name, common_name=None):
 		"""Propose a plant on the NGA site."""
 
+		# TO DO: Update this link, as it is no longer valid
 		# The COL search results is applicable to both the DCA export data
 		# and the COL search in this case, so no need to make it editable yet
-		col_url = 'https://www.catalogueoflife.org/data/search?facet=rank&facet=issue&facet=status&facet=nomStatus&facet=nameType&facet=field&facet=authorship&facet=extinct&facet=environment&limit=50&offset=0&q=%s&sortBy=taxonomic' % botanic_name.split()[0]
+		qname = botanic_name.split()[0]
+		col_url = f'https://www.catalogueoflife.org/data/search?facet=rank&facet=issue&facet=status&facet=nomStatus&facet=nameType&facet=field&facet=authorship&facet=extinct&facet=environment&limit=50&offset=0&q={qname}&sortBy=taxonomic'
 
 		if common_name is None:
 			common_name = ''
@@ -725,7 +727,7 @@ class NGA:
 		try:
 			req = self._session.get(url)
 		except requests.exceptions.RequestException as err:
-			print("Error retrieving NGA database name page for %s." % plant['full_name'])
+			print(f'Error retrieving NGA database name page for {plant["full_name"]}.')
 			print(str(err))
 			return None
 		else:
@@ -773,8 +775,8 @@ class NGA:
 					data['latin[]'] = lparams[param]['latin']
 					data['latin_status[]'] = lparams[param]['latin_status']
 				else:
-					data['latin[%s]' % param] = lparams[param]['latin']
-					data['latin_status[%s]' % param] = lparams[param]['latin_status']
+					data[f'latin[{param}]'] = lparams[param]['latin']
+					data[f'latin_status[{param}]'] = lparams[param]['latin_status']
 
 			# Common names
 			common_table = form.find('table', attrs={'id': 'common-table'})
@@ -869,7 +871,7 @@ class NGA:
 		try:
 			req = self._session.get(url)
 		except requests.exceptions.RequestException as err:
-			print("Error retrieving NGA database name page for %s." % plant['full_name'])
+			print(f'Error retrieving NGA database name page for {plant["full_name"]}.')
 			print(str(err))
 			return None
 		else:
@@ -939,8 +941,8 @@ class NGA:
 					data['latin[]'] = lparams[param]['latin']
 					data['latin_status[]'] = lparams[param]['latin_status']
 				else:
-					data['latin[%s]' % param] = lparams[param]['latin']
-					data['latin_status[%s]' % param] = lparams[param]['latin_status']
+					data[f'latin[{param}]'] = lparams[param]['latin']
+					data[f'latin_status[{param}]'] = lparams[param]['latin_status']
 
 			# Common names
 			common_table = form.find('table', attrs={'id': 'common-table'})
@@ -1016,7 +1018,7 @@ class NGA:
 			return self.__submitProposal(url, data, auto_approve)
 
 
-	def proposeDataUpdate(self, plant, genus=None):
+	def proposeDataUpdate(self, plant):
 		"""Propose an update to a plant's data fields. Currently only adds parentage.
 		Expects 'X' to be used to denote crosses."""
 
@@ -1031,7 +1033,7 @@ class NGA:
 			try:
 				req = self._session.get(url)
 			except requests.exceptions.RequestException as err:
-				print("Error retrieving NGA database databox page for %s." % plant['full_name'])
+				print(f'Error retrieving NGA database databox page for {plant["full_name"]}.')
 				print(str(err))
 				return None
 			else:
@@ -1081,11 +1083,11 @@ class NGA:
 				self.__submitProposal(url, data)
 
 
-	def proposeMerge(self, old_plant, new_plant, reversed=False, auto_approve=True):
+	def proposeMerge(self, old_plant, new_plant, reverse_order=False, auto_approve=True):
 		"""Propose the merge of the old plant into the new plant. Ensures that the
 		name of the old plant is copied across to the new one as a synonym."""
 
-		if reversed:
+		if reverse_order:
 			# Update the name of the old plant, since this entry will be kept
 			# This will fix misspellings and set the new accepted name if required
 			name_update = self.proposeNameChange(old_plant, auto_approve=auto_approve)
@@ -1103,7 +1105,7 @@ class NGA:
 				print("Error: Unable to merge a plant with itself.")
 				return
 
-			if reversed:
+			if reverse_order:
 				# New entry will be merged into old
 				url = self._merge_plant_url % new_plant['pid']
 				pid = old_plant['pid']

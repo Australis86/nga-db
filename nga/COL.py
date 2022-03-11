@@ -105,7 +105,7 @@ class COL(GBIF):
 		# First step is to get the taxon ID, then fetch the synonyms if required
 		try:
 			req = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
-		except requests.exceptions.RequestException as err:
+		except requests.exceptions.RequestException:
 			return [None, 'Error retrieving taxon']
 		else:
 			rdata = req.json()
@@ -239,7 +239,7 @@ class DCA(GBIF):
 		# First step is to get the taxon ID, then use that to retrieve the DwC-A export
 		try:
 			req = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
-		except requests.exceptions.RequestException as err:
+		except requests.exceptions.RequestException:
 			return (None, 'Unable to retrieve taxon ID.')
 		else:
 			rdata = req.json()
