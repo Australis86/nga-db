@@ -58,7 +58,7 @@ class NGA:
 			self._cookiepath = NGA_COOKIE
 		else:
 			self._cookiepath = os.path.join(os.path.expanduser('~'), '.nga')
-		self._NGAcookie = requests.cookies.RequestsCookieJar()
+		self._nga_cookie = requests.cookies.RequestsCookieJar()
 
 		# Create the session
 		self._createSession()
@@ -67,7 +67,7 @@ class NGA:
 		# If it exists, it will load it and use it for the session
 		self._loadCookieArchive(self._cookiepath)
 
-		self._session.cookies = self._NGAcookie
+		self._session.cookies = self._nga_cookie
 		self._session.get(self._home_url)
 
 		# Delay to wait before hitting NGA servers again if the connection failed
@@ -82,12 +82,12 @@ class NGA:
 
 		if os.path.exists(cookiepath):
 			# Open the JSON file
-			file_desc = open(cookiepath, 'r')
+			file_desc = open(cookiepath, 'r', encoding='utf-8')
 
 			# Try to read the JSON string and set the cookie parameters
 			try:
 				cookie = json.load(file_desc)
-				self._NGAcookie.set('gojwt', cookie['gojwt'], domain='garden.org', path='/')
+				self._nga_cookie.set('gojwt', cookie['gojwt'], domain='garden.org', path='/')
 
 			except Exception as err:
 				# We must have a valid cookie file, or the NGA site will block us`
@@ -107,7 +107,7 @@ class NGA:
 		"""Store a JSON file containing cookies for the NGA website."""
 
 		# Open the file for writing
-		file_desc = open(self._cookiepath, 'w')
+		file_desc = open(self._cookiepath, 'w', encoding='utf-8')
 		os.chmod(self._cookiepath, 0o0600) # Try to ensure only the user can read it
 
 		# Try to write the JSON string)
@@ -166,7 +166,7 @@ class NGA:
 			# Retrieve the cookies and ensure we have valid credentials
 			cookie = self._session.cookies.get_dict()
 			if 'gojwt' in cookie:
-				self._NGAcookie = self._session.cookies
+				self._nga_cookie = self._session.cookies
 				self._storeCookieArchive(cookie)
 				print("Successfully authenticated.")
 			else:
@@ -222,24 +222,24 @@ class NGA:
 		if italics is None:
 			# This was probably a parent entry
 			return (None, None, None)
+
+		botanic_name = italics.text # Botanical part
+		cultivar_name = entry_name.replace(botanic_name, '').strip() # Cultivar
+		plant_data = self._generatePlantObject(entry_name, entry_link)
+
+		# Check if there is a common name
+		commonname = italics.previousSibling
+		if commonname is not None:
+			commonname = commonname.strip().strip('(').strip()
+			if commonname in botanic_name:
+				plant_data['common_name'] = True # Change common name
+			elif commonname==cname_exclude:
+				plant_data['common_name'] = True # Change common name
+				plant_data['common_exclude'] = cname_exclude
 		else:
-			botanic_name = italics.text # Botanical part
-			cultivar_name = entry_name.replace(botanic_name, '').strip() # Cultivar
-			plant_data = self._generatePlantObject(entry_name, entry_link)
+			plant_data['common_name'] = None # Common name missing
 
-			# Check if there is a common name
-			commonname = italics.previousSibling
-			if commonname is not None:
-				commonname = commonname.strip().strip('(').strip()
-				if commonname in botanic_name:
-					plant_data['common_name'] = True # Change common name
-				elif commonname==cname_exclude:
-					plant_data['common_name'] = True # Change common name
-					plant_data['common_exclude'] = cname_exclude
-			else:
-				plant_data['common_name'] = None # Common name missing
-
-			return (botanic_name, cultivar_name, plant_data)
+		return (botanic_name, cultivar_name, plant_data)
 
 
 
@@ -386,10 +386,10 @@ class NGA:
 			if not recursed:
 				time.sleep(self._recursion_delay)
 				return self.search(search_term, True)
-			else:
-				print(f'Error retrieving NGA search results for {search_term}.')
-				print(str(err))
-				return None
+
+			print(f'Error retrieving NGA search results for {search_term}.')
+			print(str(err))
+			return None
 		else:
 			# Parse the returned HTML
 			soup = BeautifulSoup(req.text, "lxml")
@@ -413,8 +413,7 @@ class NGA:
 				return botanic_entries
 
 			# No search results
-			else:
-				return None
+			return None
 
 
 	def formatParentage(self, genus, dataset):
@@ -544,10 +543,10 @@ class NGA:
 			if not recursed:
 				time.sleep(self._recursion_delay)
 				return self.checkParentageField(plant, True)
-			else:
-				print(f'Error retrieving NGA plant entry for {plant["full_name"]}.')
-				print(str(err))
-				return None
+
+			print(f'Error retrieving NGA plant entry for {plant["full_name"]}.')
+			print(str(err))
+			return None
 		else:
 			# Parse the returned HTML
 			soup = BeautifulSoup(req.text, "lxml")
@@ -596,9 +595,9 @@ class NGA:
 						if (approved1 and len(approved1) > 0) or (approved2 and len(approved2) > 0):
 							print("\tProposal approved.")
 							return True
-						else:
-							print("\tProposal not approved.")
-							return False
+
+						print("\tProposal not approved.")
+						return False
 				else:
 					print("\tProposal submitted.")
 					return False
@@ -618,9 +617,9 @@ class NGA:
 			if not recursed:
 				time.sleep(1)
 				return self.fetchNewProposals(True)
-			else:
-				print(str(err))
-				return None
+
+			print(str(err))
+			return None
 		except requests.exceptions.RequestException as err:
 			print(str(err))
 			return None

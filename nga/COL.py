@@ -51,7 +51,7 @@ class GBIF:
 		if not os.path.exists(auth_file):
 			self._createAuthFile(auth_file)
 
-		gbif = open(auth_file, 'r')
+		gbif = open(auth_file, 'r', encoding='utf-8')
 		gbif_auth = gbif.read()
 		gbif.close()
 
@@ -79,7 +79,7 @@ class GBIF:
 		print("Successfully tested authentication.")
 
 		# Store the credentials
-		gbif = open(auth_file, 'w')
+		gbif = open(auth_file, 'w', encoding='utf-8')
 		os.chmod(auth_file, 0o0600) # Try to ensure only the user can read it
 		gbif.write(f'{user}:{pwd}')
 		gbif.close()
@@ -185,8 +185,8 @@ class COL(GBIF):
 				else:
 					if len(illegal_status) > 0:
 						return [None, f'Invalid status: {("/".join(illegal_status))}']
-					else:
-						return [None, 'No accepted or synonym name available from COL']
+
+					return [None, 'No accepted or synonym name available from COL']
 
 				return [acceptedname['scientificName']]
 
@@ -318,103 +318,102 @@ class DCA(GBIF):
 		if os.path.exists(fpath) and datetime.fromtimestamp(os.path.getmtime(fpath)) > self.__cache_age:
 			print(f'Recent SQLite DB for {genus} found. Skipping download and DB build.')
 			return fpath
-		else:
-			stdout.write('Fetching Catalogue of Life Darwin Core Archive Export... ')
+
+		stdout.write('Fetching Catalogue of Life Darwin Core Archive Export... ')
+		stdout.flush()
+		(gpath, errmsg) = self._exportGenus(genus)
+
+		# Attempt to build the DB
+		if gpath is not None:
+			tmpdir = os.path.join(gpath, 'tmp')
+			sqldir = script_path
+
+			# Only continue if the import script directory exists
+			if os.path.exists(sqldir):
+
+				# Clean up an existing folder structure
+				if os.path.exists(tmpdir):
+					shutil.rmtree(tmpdir)
+
+				# Create the temporary folder
+				os.mkdir(tmpdir)
+
+				# File name : table name relationship
+				tables = [
+					('Distribution.tsv','Distribution'),
+					('SpeciesProfile.tsv','SpeciesProfile'),
+					('Taxon.tsv','Taxon'),
+					('VernacularName.tsv','VernacularName'),
+				]
+
+				# Prepare the commands
+				commands = [
+					f'.read {script_path}/create-DCA-tables.sql',
+					'.mode tabs',
+				]
+
+				for table in tables:
+					commands.append(f'.import "{genus}/{table[0]}" {table[1]}')
+
+				stdout.write('done.\r\nBuilding database... ')
+				stdout.flush()
+
+				# Create the temporary SQL file (based on provided SQLite import script)
+				sqlcat = os.path.join(tmpdir, 'sqlite3init.cat')
+				file_desc = open(sqlcat, 'w', encoding='utf-8')
+				file_desc.writelines(f'{comm}\n' for comm in commands)
+				file_desc.close()
+
+				# Create the SQL database
+				if os.path.exists(fpath):
+					os.remove(fpath)
+
+				conn = sqlite3.connect(fpath)
+				cur = conn.cursor()
+
+				# Try to create the tables
+				file_desc = open(os.path.join(script_path,'create-DCA-tables.sql'), 'r', encoding='utf-8')
+				contents = file_desc.read()
+				file_desc.close()
+
+				queries = contents.split(';')
+				for query in queries:
+					cur.execute(query)
+					conn.commit()
+
+				# Import files
+				for table in tables:
+					tname = os.path.join(gpath, table[0])
+					with open(tname, 'r', encoding='utf-8-sig') as file_desc:
+						reader = csv.reader(file_desc, dialect=csv.excel_tab, quoting=csv.QUOTE_NONE)
+
+						# Get the column names from the header row
+						columns = next(reader)
+						columns = [h.strip().split(':')[-1] for h in columns]
+
+						# Must quote column names, since keywords 'order' and 'references' are used
+						query = 'INSERT INTO %s({0}) VALUES ({1})' % table[1]
+						query = query.format(','.join([f'"{col}"' for col in columns]), ','.join('?' * len(columns)))
+
+						# Import each row
+						for row in reader:
+							cur.execute(query, row)
+
+					conn.commit()
+
+				# Save and close the connection
+				conn.close()
+
+				# Cleanup the folder and zip
+				if os.path.exists(gpath):
+					shutil.rmtree(gpath)
+
+				stdout.write('done.\r\n')
+				stdout.flush()
+				return fpath
+
+			stdout.write('failed. Import script path does not exist.\r\n')
 			stdout.flush()
-			(gpath, errmsg) = self._exportGenus(genus)
-
-			# Attempt to build the DB
-			if gpath is not None:
-				tmpdir = os.path.join(gpath, 'tmp')
-				sqldir = script_path
-
-				# Only continue if the import script directory exists
-				if os.path.exists(sqldir):
-
-					# Clean up an existing folder structure
-					if os.path.exists(tmpdir):
-						shutil.rmtree(tmpdir)
-
-					# Create the temporary folder
-					os.mkdir(tmpdir)
-
-					# File name : table name relationship
-					tables = [
-						('Distribution.tsv','Distribution'),
-						('SpeciesProfile.tsv','SpeciesProfile'),
-						('Taxon.tsv','Taxon'),
-						('VernacularName.tsv','VernacularName'),
-					]
-
-					# Prepare the commands
-					commands = [
-						f'.read {script_path}/create-DCA-tables.sql',
-						'.mode tabs',
-					]
-
-					for table in tables:
-						commands.append(f'.import "{genus}/{table[0]}" {table[1]}')
-
-					stdout.write('done.\r\nBuilding database... ')
-					stdout.flush()
-
-					# Create the temporary SQL file (based on provided SQLite import script)
-					sqlcat = os.path.join(tmpdir, 'sqlite3init.cat')
-					file_desc = open(sqlcat, 'w')
-					file_desc.writelines(f'{comm}\n' for comm in commands)
-					file_desc.close()
-
-					# Create the SQL database
-					if os.path.exists(fpath):
-						os.remove(fpath)
-
-					conn = sqlite3.connect(fpath)
-					cur = conn.cursor()
-
-					# Try to create the tables
-					file_desc = open(os.path.join(script_path,'create-DCA-tables.sql'), 'r')
-					contents = file_desc.read()
-					file_desc.close()
-
-					queries = contents.split(';')
-					for query in queries:
-						cur.execute(query)
-						conn.commit()
-
-					# Import files
-					for table in tables:
-						tname = os.path.join(gpath, table[0])
-						with open(tname, 'r', encoding='utf-8-sig') as file_desc:
-							reader = csv.reader(file_desc, dialect=csv.excel_tab, quoting=csv.QUOTE_NONE)
-
-							# Get the column names from the header row
-							columns = next(reader)
-							columns = [h.strip().split(':')[-1] for h in columns]
-
-							# Must quote column names, since keywords 'order' and 'references' are used
-							query = 'INSERT INTO %s({0}) VALUES ({1})' % table[1]
-							query = query.format(','.join([f'"{col}"' for col in columns]), ','.join('?' * len(columns)))
-
-							# Import each row
-							for row in reader:
-								cur.execute(query, row)
-
-						conn.commit()
-
-					# Save and close the connection
-					conn.close()
-
-					# Cleanup the folder and zip
-					if os.path.exists(gpath):
-						shutil.rmtree(gpath)
-
-					stdout.write('done.\r\n')
-					stdout.flush()
-					return fpath
-
-				else:
-					stdout.write('failed. Import script path does not exist.\r\n')
-					stdout.flush()
 
 		if errmsg is None:
 			stdout.write('failed. Unknown error.\r\n')
