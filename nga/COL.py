@@ -51,9 +51,8 @@ class GBIF:
 		if not os.path.exists(auth_file):
 			self._createAuthFile(auth_file)
 
-		gbif = open(auth_file, 'r', encoding='utf-8')
-		gbif_auth = gbif.read()
-		gbif.close()
+		with open(auth_file, 'r', encoding='utf-8') as gbif:
+			gbif_auth = gbif.read()
 
 		gbif_account = gbif_auth.split(':')
 		if len(gbif_account) > 1:
@@ -79,10 +78,9 @@ class GBIF:
 		print("Successfully tested authentication.")
 
 		# Store the credentials
-		gbif = open(auth_file, 'w', encoding='utf-8')
-		os.chmod(auth_file, 0o0600) # Try to ensure only the user can read it
-		gbif.write(f'{user}:{pwd}')
-		gbif.close()
+		with open(auth_file, 'w', encoding='utf-8') as gbif:
+			os.chmod(auth_file, 0o0600) # Try to ensure only the user can read it
+			gbif.write(f'{user}:{pwd}')
 
 
 class COL(GBIF):
@@ -360,9 +358,8 @@ class DCA(GBIF):
 
 				# Create the temporary SQL file (based on provided SQLite import script)
 				sqlcat = os.path.join(tmpdir, 'sqlite3init.cat')
-				file_desc = open(sqlcat, 'w', encoding='utf-8')
-				file_desc.writelines(f'{comm}\n' for comm in commands)
-				file_desc.close()
+				with open(sqlcat, 'w', encoding='utf-8') as file_desc:
+					file_desc.writelines(f'{comm}\n' for comm in commands)
 
 				# Create the SQL database
 				if os.path.exists(fpath):
@@ -372,9 +369,8 @@ class DCA(GBIF):
 				cur = conn.cursor()
 
 				# Try to create the tables
-				file_desc = open(os.path.join(script_path,'create-DCA-tables.sql'), 'r', encoding='utf-8')
-				contents = file_desc.read()
-				file_desc.close()
+				with open(os.path.join(script_path,'create-DCA-tables.sql'), 'r', encoding='utf-8') as file_desc:
+					contents = file_desc.read()
 
 				queries = contents.split(';')
 				for query in queries:

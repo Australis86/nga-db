@@ -82,21 +82,18 @@ class NGA:
 
 		if os.path.exists(cookiepath):
 			# Open the JSON file
-			file_desc = open(cookiepath, 'r', encoding='utf-8')
+			with open(cookiepath, 'r', encoding='utf-8') as file_desc:
+				# Try to read the JSON string and set the cookie parameters
+				try:
+					cookie = json.load(file_desc)
+					self._nga_cookie.set('gojwt', cookie['gojwt'], domain='garden.org', path='/')
 
-			# Try to read the JSON string and set the cookie parameters
-			try:
-				cookie = json.load(file_desc)
-				self._nga_cookie.set('gojwt', cookie['gojwt'], domain='garden.org', path='/')
+				except Exception as err:
+					# We must have a valid cookie file, or the NGA site will block us`
+					print(f'Error loading cookie archive {cookiepath}. A valid cookie file is required to use this script.')
 
-			except Exception as err:
-				# We must have a valid cookie file, or the NGA site will block us`
-				print(f'Error loading cookie archive {cookiepath}. A valid cookie file is required to use this script.')
-
-				# Re-raise the exception
-				raise err
-
-			file_desc.close()
+					# Re-raise the exception
+					raise err
 		else:
 			# We must have a valid cookie file, or the NGA site will block us`
 			print(f'Cookie archive {cookiepath} not found. A valid cookie file is required to use this script.')
@@ -107,21 +104,19 @@ class NGA:
 		"""Store a JSON file containing cookies for the NGA website."""
 
 		# Open the file for writing
-		file_desc = open(self._cookiepath, 'w', encoding='utf-8')
-		os.chmod(self._cookiepath, 0o0600) # Try to ensure only the user can read it
+		with open(self._cookiepath, 'w', encoding='utf-8') as file_desc:
+			os.chmod(self._cookiepath, 0o0600) # Try to ensure only the user can read it
 
-		# Try to write the JSON string)
-		try:
-			json.dump(cookiejson, file_desc)
+			# Try to write the JSON string)
+			try:
+				json.dump(cookiejson, file_desc)
 
-		except Exception as err:
-			# We must have a valid cookie file, or the NGA site will block us`
-			print(f'Error writing cookie archive {self._cookiepath}. A valid cookie file is required to use this script.')
+			except Exception as err:
+				# We must have a valid cookie file, or the NGA site will block us`
+				print(f'Error writing cookie archive {self._cookiepath}. A valid cookie file is required to use this script.')
 
-			# Re-raise the exception
-			raise err
-
-		file_desc.close()
+				# Re-raise the exception
+				raise err
 
 
 	def _startAuthSession(self):
@@ -214,7 +209,11 @@ class NGA:
 		# If an entry has a common name, the botanic name and cultivar will be in parentheses
 		if '(' in anchor_text:
 			regex = r'(?:\()(.+)(?:\))'
-			entry_name = re.search(regex, anchor_text, re.DOTALL).group(1) # Remember to use group 1 here
+			try:
+				entry_name = re.search(regex, anchor_text, re.DOTALL).group(1) # Remember to use group 1 here
+			except AttributeError:
+				print('\nERROR: Invalid anchor text -', anchor_text)
+				sys.exit(1)
 		else:
 			entry_name = anchor_text
 

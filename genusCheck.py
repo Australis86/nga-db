@@ -32,8 +32,8 @@ def initMenu():
 	parser = argparse.ArgumentParser()
 
 	parser.add_argument("-g", "--genus", help="genus name", required=True)
-	parser.add_argument("-e", "--existing", help="check for existing new plant proposals, but do not automatically approval",
-		action="store_true")
+	parser.add_argument("-e", "--existing", help="do not check for existing new plant proposals",
+		action="store_false", default=True)
 	parser.add_argument("-p", "--propose", help="automatically propose and approve (if possible) changes to the NGA database",
 		action="store_true")
 
@@ -391,7 +391,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			# Allows us to check for typos/spelling mistakes
 			if LV_EXISTS and dca_db is not None:
 				# Get the list of taxa
-				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' ELSE 'var.' END || ' ' || infraspecificEpithet as epithet, taxonomicStatus, acceptedNameUsageID from Taxon GROUP BY epithet"
+				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' WHEN upper(taxonRank)='INFRASPECIFIC NAME' THEN 'var.' ELSE '' END || ' ' || infraspecificEpithet as epithet, taxonomicStatus, acceptedNameUsageID from Taxon GROUP BY epithet"
 				cur.execute(sql)
 
 				# Iterate through the names and compare to the entry from the NGA`
