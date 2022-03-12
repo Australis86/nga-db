@@ -49,7 +49,7 @@ class GBIF:
 		"""Load a file containing the user's GBIF account details."""
 
 		if not os.path.exists(auth_file):
-			self._createAuthFile(auth_file)
+			_createAuthFile(auth_file)
 
 		with open(auth_file, 'r', encoding='utf-8') as gbif:
 			gbif_auth = gbif.read()
@@ -61,26 +61,6 @@ class GBIF:
 
 		self._auth = HTTPBasicAuth(username, password) # GBIF account
 
-
-	def _createAuthFile(self, auth_file):
-		"""Store a set of authentication parameters."""
-
-		# Ask the user for their credentials
-		print("Please enter your GBIF credentials.")
-		user = input("Username: ")
-		pwd = getpass.getpass()
-
-		# Test the credentials
-		req = requests.get("https://api.checklistbank.org/user/me", auth=HTTPBasicAuth(user, pwd), headers={'accept': 'application/json'})
-		if req.status_code != 200:
-			raise PermissionError("Failed to authenticate with the COL API.")
-
-		print("Successfully tested authentication.")
-
-		# Store the credentials
-		with open(auth_file, 'w', encoding='utf-8') as gbif:
-			os.chmod(auth_file, 0o0600) # Try to ensure only the user can read it
-			gbif.write(f'{user}:{pwd}')
 
 
 class COL(GBIF):
@@ -162,7 +142,7 @@ class COL(GBIF):
 								# Status field isn't always included for some reason
 								if synonym_type == 'heterotypic' or 'misapplied' not in syn['status'].lower():
 									synonyms.append(syn['scientificName'])
-							except Exception:
+							except KeyError:
 								print("Warning: check synonym object")
 
 					synonyms.sort()
@@ -286,9 +266,9 @@ class DCA(GBIF):
 				# If the zip file successfully downloaded and is a valid zipfile, extract it
 				if os.path.exists(zpath):
 					if zipfile.is_zipfile(zpath):
-						zfile = zipfile.ZipFile(zpath)
-						gpath = os.path.join(self.__cache, genus) # Create a subfolder in the cache directory using the genus name
-						zfile.extractall(gpath) # Extract the zip file into the new subfolder
+						with zipfile.ZipFile(zpath) as zfile:
+							gpath = os.path.join(self.__cache, genus) # Create a subfolder in the cache directory using the genus name
+							zfile.extractall(gpath) # Extract the zip file into the new subfolder
 					else:
 						errmsg = "The downloaded Darwin Core Archive export was not a valid zip file."
 						gpath = None
@@ -388,7 +368,7 @@ class DCA(GBIF):
 						columns = [h.strip().split(':')[-1] for h in columns]
 
 						# Must quote column names, since keywords 'order' and 'references' are used
-						query = 'INSERT INTO %s({0}) VALUES ({1})' % table[1]
+						query = f'INSERT INTO {table[1]}({{0}}) VALUES ({{1}})'
 						query = query.format(','.join([f'"{col}"' for col in columns]), ','.join('?' * len(columns)))
 
 						# Import each row
@@ -425,6 +405,27 @@ class DCA(GBIF):
 				sys.exit(1)
 
 		return None
+
+
+def _createAuthFile(auth_file):
+	"""Store a set of authentication parameters."""
+
+	# Ask the user for their credentials
+	print("Please enter your GBIF credentials.")
+	user = input("Username: ")
+	pwd = getpass.getpass()
+
+	# Test the credentials
+	req = requests.get("https://api.checklistbank.org/user/me", auth=HTTPBasicAuth(user, pwd), headers={'accept': 'application/json'})
+	if req.status_code != 200:
+		raise PermissionError("Failed to authenticate with the COL API.")
+
+	print("Successfully tested authentication.")
+
+	# Store the credentials
+	with open(auth_file, 'w', encoding='utf-8') as gbif:
+		os.chmod(auth_file, 0o0600) # Try to ensure only the user can read it
+		gbif.write(f'{user}:{pwd}')
 
 
 def testSearch(search_term='Cymbidium iansonii'):

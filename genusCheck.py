@@ -632,7 +632,7 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 				# Populate parentage field
 				if rhs['matched']:
 					hybrids[hybrid]['remove_quotes'] = hybrids[hybrid]['has_quotes']
-					hybrids[hybrid]['parentage'] = nga_db.formatParentage(genus, rhs)
+					hybrids[hybrid]['parentage'] = nga.NGA.formatParentage(genus, rhs)
 
 					if parentage_check:
 						# Check if the NGA page has the parentage field populated
@@ -900,7 +900,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 		for new_name in additions:
 			# Check if there is an existing proposal first
-			pid = nga_db.checkNewProposal(pending, new_name)
+			pid = nga.NGA.checkNewProposal(pending, new_name)
 			if pid is not None:
 				print('    ',new_name,f'[proposal {pid}]')
 			else:

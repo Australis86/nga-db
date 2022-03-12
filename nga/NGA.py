@@ -27,6 +27,7 @@ from sys import stdout
 import requests
 from bs4 import BeautifulSoup
 
+
 class NGA:
 	"""Create a user-friendly API for the NGA website's Plants Database."""
 
@@ -180,20 +181,6 @@ class NGA:
 		self._session.get(self._home_url)
 
 
-	def _generatePlantObject(self, name, url=None):
-		"""Generate a dictionary object to be used for plant entries."""
-
-		# Default plant object assumes no change to common name
-		obj = {'full_name': name.replace('  ',' '), 'url': url, 'pid': None, 'common_name': False, 'warning':False}
-
-		# Extract the plant ID
-		if url is not None:
-			pid = re.search(r'(?:/)(\d+)(?:/)', url, re.DOTALL).group(1)
-			obj['pid'] = pid
-
-		return obj
-
-
 	def _parseTableRow(self, row, cname_exclude=None):
 		"""Extract the plant information from a row in the NGA genus or search results table."""
 
@@ -224,7 +211,7 @@ class NGA:
 
 		botanic_name = italics.text # Botanical part
 		cultivar_name = entry_name.replace(botanic_name, '').strip() # Cultivar
-		plant_data = self._generatePlantObject(entry_name, entry_link)
+		plant_data = _generatePlantObject(entry_name, entry_link)
 
 		# Check if there is a common name
 		commonname = italics.previousSibling
@@ -415,83 +402,6 @@ class NGA:
 			return None
 
 
-	def formatParentage(self, genus, dataset):
-		"""Format the parentage data to be consistent with the NGA database entry.
-		Current database rules do not permit the use of parentage fields containing
-		different genera unless the parent is a species."""
-
-		def checkUnknown(parent):
-			"""Method to check if the parentage provided is unknown."""
-
-			# List of strings used to describe unknown parents
-			unknown_list = ['na','uk','?','unknown']
-
-			# Convert to lowercase and clean up
-			genus = parent[0].lower().strip()
-			taxon = parent[1].lower().strip()
-
-			# Return true if either the genus or species/hybrid taxon is unknown
-			return genus in unknown_list or taxon in unknown_list
-
-		def checkIfSpecies(genus, parent):
-			"""Method to check if the parent is a species or hybrid."""
-
-			# Check if the parent is in the same genus as the hybrid
-			different_genus = (genus != parent[0])
-
-			# Check if is lowercase (and possibly symbols); i.e. a species
-			species = all(namepart.islower() or not namepart.isalpha() for namepart in parent[1])
-
-			if species or different_genus:
-				name = ' '.join(parent)
-			else:
-				name = parent[1]
-
-			return (different_genus, species, name)
-
-		def checkIfNaturalHybrid(parent):
-			"""Method to check if an entry is a natural hybrid
-			(i.e. contains the multiplication symbol). If so,
-			substitute for x to be consistent with the database."""
-
-			# TO DO: Check for the presence of symbols
-			return parent
-
-
-		# Make sure the fields are present
-		if 'pod_parent' in dataset and 'pollen_parent' in dataset:
-			pod_parent = dataset['pod_parent']
-			pollen_parent = dataset['pollen_parent']
-
-			# Check the fields
-			if pod_parent is not None and pollen_parent is not None:
-
-				# Check if unknown
-				unk_mother = checkUnknown(pod_parent)
-				unk_father = checkUnknown(pollen_parent)
-
-				# If both parents are unknown, abort
-				if unk_mother and unk_father:
-					return None
-
-				# Check if species (if so, we need the genus included)
-				mother = checkIfSpecies(genus, pod_parent)
-				father = checkIfSpecies(genus, pollen_parent)
-
-				mother = checkIfNaturalHybrid(mother)
-				father = checkIfNaturalHybrid(father)
-
-				parentage = {
-					'formula': ' X '.join([mother[2], father[2]]),
-					'intergeneric': mother[0] or father[1],
-					'violates_rules': (mother[0] and not mother[1]) or (father[0] and not father[1])
-				}
-
-				return parentage
-
-		return None
-
-
 	def checkPageFields(self, plant):
 		"""Check which fields are populated on a plant database entry. Useful for determining if we can automatically merge entries."""
 
@@ -648,16 +558,6 @@ class NGA:
 					pending[botanical_name].append(pid)
 
 			return pending
-
-
-	def checkNewProposal(self, pending, botanic_name):
-		"""Check to see if a new plant proposal exists. Requires admin rights."""
-
-		if pending is not None:
-			if botanic_name in pending:
-				return pending[botanic_name][0]
-
-		return None
 
 
 	def approveNewProposal(self, pid):
@@ -1122,6 +1022,107 @@ class NGA:
 
 			# POST the data
 			self._submitProposal(url, params, auto_approve=auto_approve)
+
+
+def _generatePlantObject(name, url=None):
+	"""Generate a dictionary object to be used for plant entries."""
+
+	# Default plant object assumes no change to common name
+	obj = {'full_name': name.replace('  ',' '), 'url': url, 'pid': None, 'common_name': False, 'warning':False}
+
+	# Extract the plant ID
+	if url is not None:
+		pid = re.search(r'(?:/)(\d+)(?:/)', url, re.DOTALL).group(1)
+		obj['pid'] = pid
+
+	return obj
+
+
+def formatParentage(genus, dataset):
+	"""Format the parentage data to be consistent with the NGA database entry.
+	Current database rules do not permit the use of parentage fields containing
+	different genera unless the parent is a species."""
+
+	def checkUnknown(parent):
+		"""Method to check if the parentage provided is unknown."""
+
+		# List of strings used to describe unknown parents
+		unknown_list = ['na','uk','?','unknown']
+
+		# Convert to lowercase and clean up
+		genus = parent[0].lower().strip()
+		taxon = parent[1].lower().strip()
+
+		# Return true if either the genus or species/hybrid taxon is unknown
+		return genus in unknown_list or taxon in unknown_list
+
+	def checkIfSpecies(genus, parent):
+		"""Method to check if the parent is a species or hybrid."""
+
+		# Check if the parent is in the same genus as the hybrid
+		different_genus = (genus != parent[0])
+
+		# Check if is lowercase (and possibly symbols); i.e. a species
+		species = all(namepart.islower() or not namepart.isalpha() for namepart in parent[1])
+
+		if species or different_genus:
+			name = ' '.join(parent)
+		else:
+			name = parent[1]
+
+		return (different_genus, species, name)
+
+	def checkIfNaturalHybrid(parent):
+		"""Method to check if an entry is a natural hybrid
+		(i.e. contains the multiplication symbol). If so,
+		substitute for x to be consistent with the database."""
+
+		# TO DO: Check for the presence of symbols
+		return parent
+
+
+	# Make sure the fields are present
+	if 'pod_parent' in dataset and 'pollen_parent' in dataset:
+		pod_parent = dataset['pod_parent']
+		pollen_parent = dataset['pollen_parent']
+
+		# Check the fields
+		if pod_parent is not None and pollen_parent is not None:
+
+			# Check if unknown
+			unk_mother = checkUnknown(pod_parent)
+			unk_father = checkUnknown(pollen_parent)
+
+			# If both parents are unknown, abort
+			if unk_mother and unk_father:
+				return None
+
+			# Check if species (if so, we need the genus included)
+			mother = checkIfSpecies(genus, pod_parent)
+			father = checkIfSpecies(genus, pollen_parent)
+
+			mother = checkIfNaturalHybrid(mother)
+			father = checkIfNaturalHybrid(father)
+
+			parentage = {
+				'formula': ' X '.join([mother[2], father[2]]),
+				'intergeneric': mother[0] or father[1],
+				'violates_rules': (mother[0] and not mother[1]) or (father[0] and not father[1])
+			}
+
+			return parentage
+
+	return None
+
+
+def checkNewProposal(pending, botanic_name):
+	"""Check to see if a new plant proposal exists. Requires admin rights."""
+
+	if pending is not None:
+		if botanic_name in pending:
+			return pending[botanic_name][0]
+
+	return None
 
 
 def testModule(cookiepath=None):
