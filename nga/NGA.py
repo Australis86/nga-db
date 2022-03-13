@@ -516,6 +516,8 @@ class NGA:
 			else:
 				print("\tFailed to submit proposal.")
 
+		return None
+
 
 	def fetchNewProposals(self, recursed=False):
 		"""Check to see if a new plant proposal exists. Requires admin rights."""
@@ -981,7 +983,7 @@ class NGA:
 				data['submit'] = 'Save and submit the proposal'
 
 				# POST the data and automatically approve the proposal
-				self._submitProposal(url, data)
+				return self._submitProposal(url, data)
 
 
 	def proposeMerge(self, old_plant, new_plant, reverse_order=False, auto_approve=True):

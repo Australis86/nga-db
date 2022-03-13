@@ -51,12 +51,18 @@ def initMenu():
 	return parser.parse_args()
 
 
-def checkSynonym(nga_dataset, search_obj, search_term, working_genus, nga_hyb_status=None):
-	"""Check a synonym in a remote database."""
+def checkSynonym(nga_dataset, search_obj, search_term, working_genus, working_name=None, nga_hyb_status=None):
+	"""Check a synonym in a remote database.
+	
+	Normally the working name field will be the same as the search term, but it allows handling of type varieties
+	that have been merged back into the species taxon."""
 
 	# Remove the hybrid symbol, as it isn't used by the COL and KEW uses the proper symbol rather than an x
 	if nga_hyb_status is None:
 		nga_hyb_status = ' x ' in search_term
+
+	if working_name is None:
+		working_name = search_term
 
 	msg = None
 	non_hyb_search_term = search_term.replace(' x ',' ')
@@ -69,8 +75,8 @@ def checkSynonym(nga_dataset, search_obj, search_term, working_genus, nga_hyb_st
 	current_names = nga_dataset.keys()
 	duplicate = False
 
-	# Only update if it's not the same and the result is valid
-	if retname is not None and retname not in (search_term, non_hyb_search_term):
+	# Only update if the result is valid and it's not the same as either the search term or the working name
+	if retname is not None and (retname not in (search_term, non_hyb_search_term) or retname != working_name):
 		ret_fields = retname.split()
 		retgenus = ret_fields[0]
 		params_st = len(search_term.split())
@@ -85,14 +91,14 @@ def checkSynonym(nga_dataset, search_obj, search_term, working_genus, nga_hyb_st
 			print("\tWarning: COL may be incomplete --",search_term,'->',retname)
 		else:
 			# Update the dictionary
-			for cultivar in nga_dataset[search_term]:
-				nga_dataset[search_term][cultivar]['new_bot_name'] = retname
-				nga_dataset[search_term][cultivar]['changed'] = True
-				nga_dataset[search_term][cultivar]['duplicate'] = duplicate
+			for cultivar in nga_dataset[working_name]:
+				nga_dataset[working_name][cultivar]['new_bot_name'] = retname
+				nga_dataset[working_name][cultivar]['changed'] = True
+				nga_dataset[working_name][cultivar]['duplicate'] = duplicate
 
 				if nga_hyb_status:
-					nga_dataset[search_term][cultivar]['warning'] = True
-					nga_dataset[search_term][cultivar]['warning_desc'] = 'NGA-listed natural hybrid is now a synonym'
+					nga_dataset[working_name][cultivar]['warning'] = True
+					nga_dataset[working_name][cultivar]['warning_desc'] = 'NGA-listed natural hybrid is now a synonym'
 
 	return (retname, msg, duplicate)
 
@@ -321,7 +327,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			elif 'synonym' in status:
 				# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
 				# Note that the species entry will have a cultivar name of ''
-				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, col_engine, full_name, genus, nga_hyb)
+				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, col_engine, full_name, genus, nga_hyb_status=nga_hyb)
 
 				if new_bot_name is not None:
 					if not duplicate and new_bot_name not in updated_names:
@@ -348,7 +354,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 			# Usually we only want to check the COL again if this entry isn't in the genus we're working on
 			# But occasionally entries are missing from the DCA dataset (sigh)
-			(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, col_engine, full_name, genus, nga_hyb)
+			(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, col_engine, full_name, genus, nga_hyb_status=nga_hyb)
 
 			if accepted_name is not None:
 				if accepted_name != search_name and not duplicate and accepted_name not in updated_names:
@@ -386,9 +392,25 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 					# No need to check for misspellings
 					continue
 
-			# At this stage there has been no match in the COL or KEW databases, so check for misspellings
-			# If the Levenshtein module is available, we can get the distance between an accepted species and the NGA entry
-			# Allows us to check for typos/spelling mistakes
+			# At this stage there has been no match in the COL or KEW databases
+			# Check if this is the type (e.g. name var. name or name subsp. name) that may have been merged back into the species rank taxon
+			if fcount == 4:
+				f1 = fields[1].strip()
+				f3 = fields[3].strip()
+				if f1 == f3:
+					# This is a type variety, so check if the species rank taxon is still valid
+					species_taxon = ' '.join(fields[0:2])
+					(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, col_engine, species_taxon, genus, full_name, nga_hyb)
+
+					if accepted_name is not None:
+						if accepted_name != search_name and not duplicate and accepted_name not in updated_names:
+							updated_names.append(accepted_name)
+
+						# The COL check successfully found a match, so no need to check for misspellings
+						continue
+
+			# Check for misspellings if the Levenshtein module is available
+			# We can get the distance between an accepted species name and the NGA entry
 			if LV_EXISTS and dca_db is not None:
 				# Get the list of taxa
 				sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' WHEN upper(taxonRank)='INFRASPECIFIC NAME' THEN 'var.' ELSE '' END || ' ' || infraspecificEpithet as epithet, taxonomicStatus, acceptedNameUsageID from Taxon GROUP BY epithet"
@@ -417,7 +439,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				if ((last_ratio > 0.9) or gender_change) and (closest_match != search_name):
 					if 'accepted' not in closest_status:
 						warning = True
-						warning_msg = 'This is a synonym and is misspelt in the NGA database'
+						warning_msg = 'This may be a misspelt synonym'
 					else:
 						warning = search_name != botanical_name
 						warning_msg = 'Misspelt accepted name in NGA database'
