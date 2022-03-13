@@ -438,6 +438,9 @@ class NGA:
 					contents = caption.get_text().strip().split(' (')[0]
 					fields['databoxes'].append(contents)
 
+			#if len(cards) > 0 or len(captions) > 0:
+			#	print(fields)
+
 			return fields
 
 

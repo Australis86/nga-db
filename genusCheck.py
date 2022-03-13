@@ -51,9 +51,9 @@ def initMenu():
 	return parser.parse_args()
 
 
-def checkSynonym(nga_dataset, search_obj, search_term, working_genus, working_name=None, nga_hyb_status=None):
-	"""Check a synonym in a remote database.
-	
+def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, working_name=None, nga_hyb_status=None):
+	"""Check a synonym in the COL.
+
 	Normally the working name field will be the same as the search term, but it allows handling of type varieties
 	that have been merged back into the species taxon."""
 
@@ -66,7 +66,7 @@ def checkSynonym(nga_dataset, search_obj, search_term, working_genus, working_na
 
 	msg = None
 	non_hyb_search_term = search_term.replace(' x ',' ')
-	results = search_obj.search(non_hyb_search_term)
+	results = col_obj.search(non_hyb_search_term)
 	if len(results) > 1:
 		#print(' ',non_hyb_search_term,'-',results[1])
 		msg = results[1]
@@ -81,10 +81,19 @@ def checkSynonym(nga_dataset, search_obj, search_term, working_genus, working_na
 		retgenus = ret_fields[0]
 		params_st = len(search_term.split())
 		params_an = len(ret_fields)
+		duplicate = (retname in current_names)
 
-		# TO DO: If this name is not in working_genus and not in current_names, search the NGA
-		# As a temporary workaround, flag it as a duplicate to be on the safe side
-		duplicate = (retname in current_names) or (retgenus != working_genus)
+		# If this name is not in working_genus and not in current_names, search the NGA
+		if retgenus != working_genus:
+			nga_matches = nga_obj.search(retname)
+			if nga_matches is not None:
+				duplicate = True
+				# If there is an exact match in the database, make sure it is part of the working dataset
+				if retname in nga_matches:
+					if retname not in nga_dataset:
+						nga_dataset[retname] = nga_matches[retname]
+				else:
+					print("No exact match")
 
 		# Exclude results where the result matches the search term or the search term is only part of the result
 		if params_an > params_st and search_term in retname:
@@ -139,6 +148,10 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 	# Storage for list of name changes to avoid double-ups when checking for missing accepted names
 	updated_names = []
+
+	# Prepare a connection to the NGA database
+	if nga_db is None:
+		nga_db = nga.NGA.NGA()
 
 	# Open a connection to the SQLite database
 	if dca_db is not None:
@@ -327,7 +340,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			elif 'synonym' in status:
 				# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
 				# Note that the species entry will have a cultivar name of ''
-				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, col_engine, full_name, genus, nga_hyb_status=nga_hyb)
+				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, nga_db, col_engine, full_name, genus, nga_hyb_status=nga_hyb)
 
 				if new_bot_name is not None:
 					if not duplicate and new_bot_name not in updated_names:
@@ -354,7 +367,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 			# Usually we only want to check the COL again if this entry isn't in the genus we're working on
 			# But occasionally entries are missing from the DCA dataset (sigh)
-			(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, col_engine, full_name, genus, nga_hyb_status=nga_hyb)
+			(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, nga_db, col_engine, full_name, genus, nga_hyb_status=nga_hyb)
 
 			if accepted_name is not None:
 				if accepted_name != search_name and not duplicate and accepted_name not in updated_names:
@@ -395,12 +408,12 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			# At this stage there has been no match in the COL or KEW databases
 			# Check if this is the type (e.g. name var. name or name subsp. name) that may have been merged back into the species rank taxon
 			if fcount == 4:
-				f1 = fields[1].strip()
-				f3 = fields[3].strip()
-				if f1 == f3:
+				name_part1 = fields[1].strip()
+				name_part3 = fields[3].strip()
+				if name_part1 == name_part3:
 					# This is a type variety, so check if the species rank taxon is still valid
 					species_taxon = ' '.join(fields[0:2])
-					(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, col_engine, species_taxon, genus, full_name, nga_hyb)
+					(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, nga_db, col_engine, species_taxon, genus, full_name, nga_hyb)
 
 					if accepted_name is not None:
 						if accepted_name != search_name and not duplicate and accepted_name not in updated_names:
@@ -485,9 +498,6 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		progress = 0.0
 		taxa = len(rows)
 		nga_dataset_additions = []
-
-		if nga_db is None:
-			nga_db = nga.NGA.NGA()
 
 		for row in rows:
 			progress += 1.0
