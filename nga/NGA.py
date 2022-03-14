@@ -26,7 +26,7 @@ from urllib.parse import urljoin, urlparse, parse_qs
 from sys import stdout
 import requests
 from bs4 import BeautifulSoup
-from nga import NGA_COOKIE
+
 
 class NGA:
 	"""Create a user-friendly API for the NGA website's Plants Database."""
@@ -40,7 +40,7 @@ class NGA:
 		self._session.headers.update({'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:97.0) Gecko/20100101 Firefox/97.0'})
 
 
-	def __init__(self):
+	def __init__(self, nga_path=None):
 		"""Create an instance and set up a requests session to the NGA website."""
 
 		self._auth_url = 'https://garden.org/login.php'
@@ -55,8 +55,8 @@ class NGA:
 		self._merge_plant_url = 'https://garden.org/plants/propose/merge_plant/%s/'
 
 		# Set the path to the NGA cookie
-		if NGA_COOKIE is not None:
-			self._cookiepath = NGA_COOKIE
+		if nga_path is not None:
+			self._cookiepath = nga_path
 		else:
 			self._cookiepath = os.path.join(os.path.expanduser('~'), '.nga')
 		self._nga_cookie = requests.cookies.RequestsCookieJar()
@@ -1133,11 +1133,7 @@ def checkNewProposal(pending, botanic_name):
 def testModule(cookiepath=None):
 	"""A simple test to check that all functions are working correctly."""
 
-	# If there is a specified path to the cookie file, use it
-	if cookiepath is not None:
-		NGA_COOKIE = cookiepath
-
-	my_nga = NGA()
+	my_nga = NGA(cookiepath)
 	results = my_nga.fetchGenus('Cymbidium')
 	print(results.keys())
 

@@ -23,7 +23,6 @@ from sys import stdout
 from datetime import datetime, timedelta
 import requests
 from requests.auth import HTTPBasicAuth
-from nga import GBIF_PATH
 
 script_path = os.path.dirname(__file__)
 
@@ -31,14 +30,14 @@ script_path = os.path.dirname(__file__)
 class GBIF:
 	"""GBIF class for handling authentication."""
 
-	def __init__(self):
+	def __init__(self, gbif_path=None):
 		"""Create an instance and set up a requests session to the COL API."""
 
 		self._session = requests.Session()
 
 		# Set the path to the GBIF auth file
-		if GBIF_PATH is not None:
-			self._authpath = GBIF_PATH
+		if gbif_path is not None:
+			self._authpath = gbif_path
 		else:
 			self._authpath = os.path.join(os.path.expanduser('~'), '.gbif')
 
