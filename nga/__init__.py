@@ -7,8 +7,13 @@ __author__ = "Joshua White"
 __copyright__ = "Copyright 2017"
 __email__ = "jwhite88@gmail.com"
 
+# Global variables (these can be set by the user)
+NGA_COOKIE = None
+GBIF_PATH = None
+
 # Not sure why, but need the explicit relative path to make this work
 from . import NGA
 from . import COL
 from . import KEW
 from . import RHS
+

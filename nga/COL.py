@@ -23,6 +23,7 @@ from sys import stdout
 from datetime import datetime, timedelta
 import requests
 from requests.auth import HTTPBasicAuth
+from nga import GBIF_PATH
 
 script_path = os.path.dirname(__file__)
 
@@ -36,7 +37,7 @@ class GBIF:
 		self._session = requests.Session()
 
 		# Set the path to the GBIF auth file
-		if 'GBIF_PATH' in globals():
+		if GBIF_PATH is not None:
 			self._authpath = GBIF_PATH
 		else:
 			self._authpath = os.path.join(os.path.expanduser('~'), '.gbif')

@@ -26,7 +26,7 @@ from urllib.parse import urljoin, urlparse, parse_qs
 from sys import stdout
 import requests
 from bs4 import BeautifulSoup
-
+from nga import NGA_COOKIE
 
 class NGA:
 	"""Create a user-friendly API for the NGA website's Plants Database."""
@@ -55,7 +55,7 @@ class NGA:
 		self._merge_plant_url = 'https://garden.org/plants/propose/merge_plant/%s/'
 
 		# Set the path to the NGA cookie
-		if 'NGA_COOKIE' in globals():
+		if NGA_COOKIE is not None:
 			self._cookiepath = NGA_COOKIE
 		else:
 			self._cookiepath = os.path.join(os.path.expanduser('~'), '.nga')
@@ -1135,7 +1135,6 @@ def testModule(cookiepath=None):
 
 	# If there is a specified path to the cookie file, use it
 	if cookiepath is not None:
-		global NGA_COOKIE
 		NGA_COOKIE = cookiepath
 
 	my_nga = NGA()
