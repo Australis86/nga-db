@@ -26,6 +26,7 @@ from urllib.parse import urljoin, urlparse, parse_qs
 from sys import stdout
 import requests
 from bs4 import BeautifulSoup
+from titlecase import titlecase
 
 
 class NGA:
@@ -418,6 +419,7 @@ class NGA:
 			fields = {
 				'cards': [],
 				'databoxes': [],
+				'common_names': [],
 			}
 
 			# Parse the returned HTML
@@ -428,17 +430,28 @@ class NGA:
 			if len(cards) > 0:
 				for card in cards:
 					contents = card.get_text().strip().strip(':')
-					# TO DO: Exclude photo gallery and comments here, since they are migrated by the merge but the other sections are not
-					fields['cards'].append(contents)
+					# Exclude the photo gallery, plant combinations, comments and discussion threads, as these are preserved during a merge
+					if contents not in ('Photo Gallery','This plant is tagged in','Common names','Comments','Discussion Threads about this plant'):
+						fields['cards'].append(contents)
+
+					# Common names are not automatically transferred, but are one we can automate
+					if contents == 'Common names':
+						container = card.parent;
+						cnames = container.findAll('li',{'class':'list-group-item'})
+						for cname in cnames:
+							common_name = [text for text in cname.stripped_strings][-1]
+							fields['common_names'].append(titlecase(common_name))
 
 			# Look for the caption element, as this indicates data tables
 			captions = soup.findAll('caption')
 			if len(captions) > 0:
 				for caption in captions:
 					contents = caption.get_text().strip().split(' (')[0]
-					fields['databoxes'].append(contents)
+					# Exclude plant events, as these are preserved during a merge
+					if contents not in ('Plant Events from our members'):
+						fields['databoxes'].append(contents)
 
-			#if len(cards) > 0 or len(captions) > 0:
+			#if len(fields['cards']) > 0 or len(fields['databoxes']) > 0:
 			#	print(fields)
 
 			return fields
@@ -613,14 +626,17 @@ class NGA:
 		self._submitProposal(self._new_plant_url, params)
 
 
-	def proposeSynonymAddition(self, plant, synonym, common_name=None, auto_approve=True):
+	def proposeSynonymAddition(self, plant, synonym, common_names=[], auto_approve=True):
 		"""Propose the addition of a synonym to a plant entry in the database.
-				Expects 'plant' to be a dictionary:
+		Expects 'plant' to be a dictionary:
 			- new_bot_name = botanical name to add or replace
 			- rename = replace the existing botanical name
 			- pid = plant id
 			- full_name = the full name for the plant (for debug purposes)
-			- common_exclude = list of common names to exclude
+
+		Other arguments:
+			- synonym = name to add
+			- common_names = list of common names to add (if not already present)
 
 		Returns:
 			- True if name exists or proposal approved
@@ -694,16 +710,15 @@ class NGA:
 
 			if len(cnames) < 1:
 				# If there are no common names and one has been provided, add it
-				if common_name is not None:
-					data['common[]'] = common_name
+				if common_names is not None and len(common_names) > 0:
+					data['common[]'] = common_names
 			else:
 				# Prepare data for common name validation
 				synonym_genus = None
-				common_found = False
-				if common_name is not None:
-					common_lower = common_name.lower()
+				if common_names is not None and len(common_names) > 0:
+					common_lower = {name.lower():name for name in common_names}
 				else:
-					common_lower = None
+					common_lower = {}
 
 				synonym_genus = synonym.split(' ')[0].strip().lower()
 
@@ -713,16 +728,16 @@ class NGA:
 					common_tidied = cname['value'].strip().lower()
 
 					# Check if the common name is already present
-					if common_lower == common_tidied:
-						common_found = True
+					if common_tidied in common_lower:
+						common_names.remove(common_lower[common_tidied])
 
 					# If the common name isn't the genus, copy it
 					if common_tidied not in (synonym_genus, cname_exclude):
 						data[cname['name']] = cname['value']
 
 				# If the provided common name wasn't listed, add it
-				if not common_found and common_name is not None:
-					data['common[]'] = common_name
+				if common_names is not None and len(common_names) > 0:
+					data['common[]'] = common_names
 
 			# Tradename and series
 			trade_table = form.find('table', attrs={'id': 'tradename-table'})
@@ -757,14 +772,17 @@ class NGA:
 			return self._submitProposal(url, data, auto_approve)
 
 
-	def proposeNameChange(self, plant, common_name=None, auto_approve=True):
+	# TO DO: Update this to accept multiple common names
+	def proposeNameChange(self, plant, common_names=[], auto_approve=True):
 		"""Propose a change to the name of a plant in the NGA database.
 		Expects 'plant' to be a dictionary:
 			- new_bot_name = botanical name to add or replace
 			- rename = replace the existing botanical name
 			- pid = plant id
 			- full_name = the full name for the plant (for debug purposes)
-			- common_exclude = list of common names to exclude
+
+		Other arguments:
+			- common_names = list of common names to add (if not already present)
 
 		Returns:
 			- True if name exists or proposal approved
@@ -860,16 +878,15 @@ class NGA:
 
 			if len(cnames) < 1:
 				# If there are no common names and one has been provided, add it
-				if common_name is not None:
-					data['common[]'] = common_name
+				if common_names is not None and len(common_names) > 0:
+					data['common[]'] = common_names
 			else:
 				# Prepare data for common name validation
 				accepted_genus = None
-				common_found = False
-				if common_name is not None:
-					common_lower = common_name.lower()
+				if common_names is not None and len(common_names) > 0:
+					common_lower = {name.lower():name for name in common_names}
 				else:
-					common_lower = None
+					common_lower = {}
 
 				if accepted_name is not None:
 					accepted_genus = accepted_name.split(' ')[0].strip().lower()
@@ -880,16 +897,16 @@ class NGA:
 					common_tidied = cname['value'].strip().lower()
 
 					# Check if the common name is already present
-					if common_lower == common_tidied:
-						common_found = True
+					if common_tidied in common_lower:
+						common_names.remove(common_lower[common_tidied])
 
 					# If the common name isn't the genus, copy it
 					if common_tidied not in (accepted_genus, cname_exclude):
 						data[cname['name']] = cname['value']
 
 				# If the provided common name wasn't listed, add it
-				if not common_found and common_name is not None:
-					data['common[]'] = common_name
+				if common_names is not None and len(common_names) > 0:
+					data['common[]'] = common_names
 
 			# Tradename and series
 			trade_table = form.find('table', attrs={'id': 'tradename-table'})
@@ -989,18 +1006,18 @@ class NGA:
 				return self._submitProposal(url, data)
 
 
-	def proposeMerge(self, old_plant, new_plant, reverse_order=False, auto_approve=True):
+	def proposeMerge(self, old_plant, new_plant, common_names=[], reverse_order=False, auto_approve=True):
 		"""Propose the merge of the old plant into the new plant. Ensures that the
 		name of the old plant is copied across to the new one as a synonym."""
 
 		if reverse_order:
 			# Update the name of the old plant, since this entry will be kept
 			# This will fix misspellings and set the new accepted name if required
-			name_update = self.proposeNameChange(old_plant, auto_approve=auto_approve)
+			name_update = self.proposeNameChange(old_plant, common_names, auto_approve)
 		else:
 			if not ('rename' in old_plant and old_plant['rename']):
 				# Update the name of the new entry, adding the old as a synonym
-				name_update = self.proposeSynonymAddition(new_plant, old_plant['full_name'], auto_approve=auto_approve)
+				name_update = self.proposeSynonymAddition(new_plant, old_plant['full_name'], common_names, auto_approve)
 			else:
 				# Old entry is just a misspelling, so we don't need to keep the name
 				name_update = True

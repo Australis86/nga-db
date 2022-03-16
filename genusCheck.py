@@ -832,7 +832,11 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				# Propose name and data changes
 				if propose:
 					if update_selected_name:
-						nga_db.proposeNameChange(selection_entry, common_name)
+						if common_name is not None:
+							cnames = [common_name]
+						else:
+							cnames = []
+						nga_db.proposeNameChange(selection_entry, cnames)
 					if update_selected_data:
 						nga_db.proposeDataUpdate(selection_entry)
 
@@ -891,6 +895,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							datafields = nga_db.checkPageFields(selection_entry)
 
 						# If the plant to be merged has datafields or its pid takes precedence over the target pid, flag that this needs to be resolved manually
+						# TO DO: Pass common names to merge function
 						if datafields is None or len(datafields['cards']) > 0 or len(datafields['databoxes']) > 0:
 							manual_merge = True
 						else:
@@ -900,7 +905,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 								# Multiple entries are being combined
 								manual_merge = True
 
-							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'pids_reversed': pids_reversed})
+							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'names': datafields['common_names'], 'pids_reversed': pids_reversed})
 
 			if manual_merge:
 				print('M   ', ', '.join(reassigned), '->', new_name)
@@ -910,7 +915,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				if propose:
 					for merge in merges.values():
 						for entry in merge:
-							nga_db.proposeMerge(entry['old'], entry['new'], entry['pids_reversed'])
+							nga_db.proposeMerge(entry['old'], entry['new'], entry['names'], entry['pids_reversed'])
 
 	# Add any missing accepted names
 	if len(additions) > 0:
@@ -991,7 +996,11 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				# Update the hybrid entry as required
 				if propose:
 					if update_hybrid_name:
-						nga_db.proposeNameChange(hybrid_entry, common_name)
+						if common_name is not None:
+							cnames = [common_name]
+						else:
+							cnames = []
+						nga_db.proposeNameChange(hybrid_entry, cnames)
 					if update_hybrid_data:
 						nga_db.proposeDataUpdate(hybrid_entry, genus)
 

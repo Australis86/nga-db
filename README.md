@@ -18,6 +18,7 @@ On the first execution of `genusCheck.py`, it will check for two files - an NGA 
   - lxml (for BS4 parser)
   - Levenshtein (python-levenshtein)
   - requests
+  - titlecase
 
 ## Acknowledgements
 
