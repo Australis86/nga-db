@@ -842,7 +842,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 	# Highlight plants to combine/merge
 	if merges_req and len(reassignments.keys()) > 0:
-		print("\nThese entries will need to be merged (synonym -> accepted name):\n M = Manual merge required\n W = Warning; entry should not have reached this section of code\n")
+		print("\nThese entries will need to be merged (synonym -> accepted name):\n M = Manual merge required\n W = Warning; entry should not have reached this section of code\n T = Target taxon does not yet exist\n")
 		for new_name, reassigned in reassignments.items():
 			manual_merge = False
 			merges = {}
@@ -850,8 +850,10 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 			if new_name not in nga_dataset:
 				if len(reassigned) > 1:
 					# This indicates we have multiple names being assigned to a new name, but the new name doesn't exist yet in the database
-					# Need to handle this differently
-					manual_merge = True
+					# TO DO: Need to select one of the existing plants to use and rename it, then merge the others into it
+					# Easiest approach would be to select the entry with the lowest PID
+					print('T   ', ', '.join(reassigned), '->', new_name)
+					continue
 				else:
 					# This should have been caught by previous code
 					print('W   ', ', '.join(reassigned), '->', new_name)
@@ -895,7 +897,6 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							datafields = nga_db.checkPageFields(selection_entry)
 
 						# If the plant to be merged has datafields or its pid takes precedence over the target pid, flag that this needs to be resolved manually
-						# TO DO: Pass common names to merge function
 						if datafields is None or len(datafields['cards']) > 0 or len(datafields['databoxes']) > 0:
 							manual_merge = True
 						else:
@@ -903,12 +904,16 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 								merges[cultivar_pid] = []
 							else:
 								# Multiple entries are being combined
+								# TO DO: Work out which order to combine them, as the order of the PIDs may complicate merges
 								manual_merge = True
 
 							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'names': datafields['common_names'], 'pids_reversed': pids_reversed})
 
 			if manual_merge:
 				print('M   ', ', '.join(reassigned), '->', new_name)
+				#for merge in merges.values():
+				#	for entry in merge:
+				#		print(entry)
 			else:
 				print('    ', ', '.join(reassigned), '->', new_name)
 

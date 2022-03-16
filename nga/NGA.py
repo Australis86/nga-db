@@ -436,7 +436,7 @@ class NGA:
 
 					# Common names are not automatically transferred, but are one we can automate
 					if contents == 'Common names':
-						container = card.parent;
+						container = card.parent
 						cnames = container.findAll('li',{'class':'list-group-item'})
 						for cname in cnames:
 							common_name = [text for text in cname.stripped_strings][-1]
@@ -626,7 +626,7 @@ class NGA:
 		self._submitProposal(self._new_plant_url, params)
 
 
-	def proposeSynonymAddition(self, plant, synonym, common_names=[], auto_approve=True):
+	def proposeSynonymAddition(self, plant, synonym, common_names=None, auto_approve=True):
 		"""Propose the addition of a synonym to a plant entry in the database.
 		Expects 'plant' to be a dictionary:
 			- new_bot_name = botanical name to add or replace
@@ -773,7 +773,7 @@ class NGA:
 
 
 	# TO DO: Update this to accept multiple common names
-	def proposeNameChange(self, plant, common_names=[], auto_approve=True):
+	def proposeNameChange(self, plant, common_names=None, auto_approve=True):
 		"""Propose a change to the name of a plant in the NGA database.
 		Expects 'plant' to be a dictionary:
 			- new_bot_name = botanical name to add or replace
@@ -1006,7 +1006,7 @@ class NGA:
 				return self._submitProposal(url, data)
 
 
-	def proposeMerge(self, old_plant, new_plant, common_names=[], reverse_order=False, auto_approve=True):
+	def proposeMerge(self, old_plant, new_plant, common_names=None, reverse_order=False, auto_approve=True):
 		"""Propose the merge of the old plant into the new plant. Ensures that the
 		name of the old plant is copied across to the new one as a synonym."""
 
