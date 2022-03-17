@@ -842,18 +842,64 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 	# Highlight plants to combine/merge
 	if merges_req and len(reassignments.keys()) > 0:
-		print("\nThese entries will need to be merged (synonym -> accepted name):\n M = Manual merge required\n W = Warning; entry should not have reached this section of code\n T = Target taxon does not yet exist\n")
+		print('''\nThese entries will need to be merged (synonym -> accepted name):
+ M = Manual merge required
+ W = Warning; entry should not have reached this section of code
+ T = Target taxon does not yet exist; script will attempt to use entry with lowest PID\n''')
 		for new_name, reassigned in reassignments.items():
 			manual_merge = False
+			target_missing = False
 			merges = {}
 
 			if new_name not in nga_dataset:
 				if len(reassigned) > 1:
 					# This indicates we have multiple names being assigned to a new name, but the new name doesn't exist yet in the database
-					# TO DO: Need to select one of the existing plants to use and rename it, then merge the others into it
-					# Easiest approach would be to select the entry with the lowest PID
+					# Need to select one of the existing plants to use and rename it, then merge the others into it
 					print('T   ', ', '.join(reassigned), '->', new_name)
-					continue
+					target_missing = True
+
+					# Identify which plant to use to merge the others into - simplest approach is to use the lowest PID
+					lowest_pids = {}
+					merge_data = {}
+
+					for botanical_name in reassigned:
+						botanical_entry = nga_dataset[botanical_name]
+
+						# Iterate through the selections for this taxon
+						for selection_name, selection_entry in botanical_entry.items():
+							if (selection_name not in lowest_pids) or (selection_entry['pid'] < lowest_pids[selection_name]['pid']):
+								lowest_pids[selection_name] = selection_entry
+
+							# Check for data fields
+							datafields = nga_db.checkPageFields(selection_entry)
+							if selection_name not in merge_data:
+								merge_data[selection_name] = {}
+							merge_data[selection_name][selection_entry['pid']] = {'entry': selection_entry, 'datafields': datafields}
+
+					if propose:
+						for selection_name, selection_entry in lowest_pids.items():
+							target_pid = selection_entry['pid']
+
+							if common_name is not None:
+								cnames = [common_name]
+							else:
+								cnames = []
+
+							if nga_db.proposeNameChange(selection_entry, cnames):
+								# Successfully updated the entry with the lowest PID, so prepare the merges next
+								for merge_obj in merge_data[selection_name].values():
+									merge_cultivar = merge_obj['entry']
+									merge_datafields = merge_obj['datafields']
+
+									if merge_cultivar['pid'] != target_pid:
+										if merge_datafields is None or len(merge_datafields['cards']) > 0 or len(merge_datafields['databoxes']) > 0:
+											print('M     ', merge_cultivar['full_name'], '->', new_name)
+										else:
+											print('      ', merge_cultivar['full_name'], '->', new_name)
+											if target_pid not in merges:
+												merges[target_pid] = []
+											merges[target_pid].append({'old':merge_cultivar, 'new':selection_entry, 'names': merge_datafields['common_names'], 'pids_reversed': False})
+
 				else:
 					# This should have been caught by previous code
 					print('W   ', ', '.join(reassigned), '->', new_name)
@@ -915,7 +961,12 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				#	for entry in merge:
 				#		print(entry)
 			else:
-				print('    ', ', '.join(reassigned), '->', new_name)
+				if not target_missing:
+					print('    ', ', '.join(reassigned), '->', new_name)
+
+				# for merge in merges.values():
+					# for entry in merge:
+						# print(entry)
 
 				if propose:
 					for merge in merges.values():

@@ -439,7 +439,7 @@ class NGA:
 						container = card.parent
 						cnames = container.findAll('li',{'class':'list-group-item'})
 						for cname in cnames:
-							common_name = [text for text in cname.stripped_strings][-1]
+							common_name = list(cname.stripped_strings)[-1]
 							fields['common_names'].append(titlecase(common_name))
 
 			# Look for the caption element, as this indicates data tables
