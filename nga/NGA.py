@@ -1006,9 +1006,12 @@ class NGA:
 				return self._submitProposal(url, data)
 
 
-	def proposeMerge(self, old_plant, new_plant, common_names=None, reverse_order=False, auto_approve=True):
+	def proposeMerge(self, old_plant, new_plant, common_names=None, auto_approve=True):
 		"""Propose the merge of the old plant into the new plant. Ensures that the
 		name of the old plant is copied across to the new one as a synonym."""
+
+		# Determine the correct order for the merge
+		reverse_order = old_plant['pid'] < new_plant['pid']
 
 		if reverse_order:
 			# Update the name of the old plant, since this entry will be kept

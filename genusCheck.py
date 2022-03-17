@@ -804,7 +804,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				# Check if the botanical name field needs updating
 				if 'changed' in selection_entry and selection_entry['changed']:
 					if selection_entry['warning']:
-						print('W   ', botanical_name, '->', selection_entry['new_bot_name'], f' ({selection_entry["warning_desc"]})')
+						print('W  ', botanical_name, '->', selection_entry['new_bot_name'], f' ({selection_entry["warning_desc"]})')
 						if not ('duplicate' in selection_entry and selection_entry['duplicate']) and selection_entry['new_bot_name'] in reassignments:
 							del reassignments[selection_entry['new_bot_name']]
 					else:
@@ -991,17 +991,16 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 						merge.remove(first_merge)
 						if propose:
 							print('     ', first_merge['old']['full_name'], '->', first_merge['new']['full_name'])
-							if nga_db.proposeMerge(first_merge['old'], first_merge['new'], first_merge['names'], first_merge['pids_reversed']):
+							if nga_db.proposeMerge(first_merge['old'], first_merge['new'], first_merge['names']):
 
 								# Iterate through the remaining merges
 								for merge_pairs in merges.values():
 									for entry in merge_pairs:
 										print('     ', entry['old']['full_name'], '->', first_merge['new']['full_name'])
-										pids_reversed = entry['old']['pid'] < new_target['pid']
 
 										# Update the target entry since this might have changed, depending on
 										# which of the two plants in the first merge has the lower PID
-										nga_db.proposeMerge(entry['old'], new_target, entry['names'], pids_reversed)
+										nga_db.proposeMerge(entry['old'], new_target, entry['names'])
 
 			else:
 				if not target_missing:
@@ -1014,7 +1013,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				if propose:
 					for merge in merges.values():
 						for entry in merge:
-							nga_db.proposeMerge(entry['old'], entry['new'], entry['names'], entry['pids_reversed'])
+							nga_db.proposeMerge(entry['old'], entry['new'], entry['names'])
 
 	# Add any missing accepted names
 	if len(additions) > 0:
