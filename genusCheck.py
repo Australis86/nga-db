@@ -848,6 +848,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
  T = Target taxon does not yet exist; script will attempt to use entry with lowest PID\n''')
 		for new_name, reassigned in reassignments.items():
 			manual_merge = False
+			nway_merge = False
 			target_missing = False
 			merges = {}
 
@@ -950,16 +951,58 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 								merges[cultivar_pid] = []
 							else:
 								# Multiple entries are being combined
-								# TO DO: Work out which order to combine them, as the order of the PIDs may complicate merges
-								manual_merge = True
+								nway_merge = True
 
 							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'names': datafields['common_names'], 'pids_reversed': pids_reversed})
 
 			if manual_merge:
 				print('M   ', ', '.join(reassigned), '->', new_name)
-				#for merge in merges.values():
-				#	for entry in merge:
-				#		print(entry)
+
+			elif nway_merge:
+				print('    ', ', '.join(reassigned), '->', new_name)
+
+				# Iterate through the pairs and work out which order to combine them
+				for pid, merge in merges.items():
+					lowest_pid = pid
+					first_merge = None
+					new_target = None
+
+					# Identify lowest PID
+					for entry in merge:
+						old_pid = entry['old']['pid']
+						new_pid = entry['new']['pid']
+						low_pid = min(old_pid, new_pid)
+
+						# Keep a reference to the plant entry with the lowest PID
+						# Also store the merge pair that contains the lowest PID, as this will be merged first
+						if low_pid <= lowest_pid:
+							lowest_pid = low_pid
+							first_merge = entry
+
+							if old_pid < new_pid:
+								new_target = entry['old']
+							else:
+								new_target = entry['new']
+
+					# If we successfully identified the first pair of entries to merge, we can merge them and then continue with the other merges
+					if first_merge is not None:
+
+						# Remove this pair from the list of merges
+						merge.remove(first_merge)
+						if propose:
+							print('      ', first_merge['old']['full_name'], '->', first_merge['new']['full_name'])
+							if nga_db.proposeMerge(first_merge['old'], first_merge['new'], first_merge['names'], first_merge['pids_reversed']):
+
+								# Iterate through the remaining merges
+								for merge in merges.values():
+									for entry in merge:
+										print('      ', entry['old']['full_name'], '->', first_merge['new']['full_name'])
+										pids_reversed = entry['old']['pid'] < new_target['pid']
+
+										# Update the target entry since this might have changed, depending on 
+										# which of the two plants in the first merge has the lower PID
+										nga_db.proposeMerge(entry['old'], new_target, entry['names'], pids_reversed)
+
 			else:
 				if not target_missing:
 					print('    ', ', '.join(reassigned), '->', new_name)

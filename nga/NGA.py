@@ -1026,7 +1026,7 @@ class NGA:
 		if name_update:
 			if new_plant['pid'] == old_plant['pid']:
 				print("Error: Unable to merge a plant with itself.")
-				return
+				return False
 
 			if reverse_order:
 				# New entry will be merged into old
@@ -1043,7 +1043,9 @@ class NGA:
 			}
 
 			# POST the data
-			self._submitProposal(url, params, auto_approve=auto_approve)
+			return self._submitProposal(url, params, auto_approve=auto_approve)
+
+		return None
 
 
 def _generatePlantObject(name, url=None):
