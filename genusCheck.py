@@ -787,18 +787,18 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				# Check parentage field for natural hybrids
 				if 'nat_hyb' in selection_entry and not selection_entry['parentage_exists']:
 					if 'parentage' in selection_entry and selection_entry['parentage'] is not None:
-						print('MP  ',botanical_name,f'({selection_entry["parentage"]["formula"]})')
+						print('MP ',botanical_name,f'({selection_entry["parentage"]["formula"]})')
 						update_selected_data = True
 					else:
-						print('MP  ',botanical_name)
+						print('MP ',botanical_name)
 
 				# Flag an update to the database entry if the common name needs changing
 				if not selection_entry['warning'] and not ('changed' in selection_entry and selection_entry['changed']):
 					if selection_entry['common_name']:
-						print('CN  ',botanical_name)
+						print('CN ',botanical_name)
 						update_selected_name = True
 					elif selection_entry['common_name'] is None and common_name is not None:
-						print('MC  ',botanical_name)
+						print('MC ',botanical_name)
 						update_selected_name = True
 
 				# Check if the botanical name field needs updating
@@ -815,7 +815,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							msg = "(Multiple names reassigned to this taxon)"
 						else:
 							update_selected_name = True
-							print('    ', botanical_name, '->', selection_entry['new_bot_name'], msg)
+							print('   ', botanical_name, '->', selection_entry['new_bot_name'], msg)
 							if selection_entry['new_bot_name'] in reassignments:
 								del reassignments[selection_entry['new_bot_name']]
 
@@ -827,7 +827,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 				# Otherwise print any warnings
 				elif selection_entry['warning']:
-					print('W   ', botanical_name, f' ({selection_entry["warning_desc"]})')
+					print('W  ', botanical_name, f' ({selection_entry["warning_desc"]})')
 
 				# Propose name and data changes
 				if propose:
@@ -856,7 +856,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				if len(reassigned) > 1:
 					# This indicates we have multiple names being assigned to a new name, but the new name doesn't exist yet in the database
 					# Need to select one of the existing plants to use and rename it, then merge the others into it
-					print('T   ', ', '.join(reassigned), '->', new_name)
+					print('T  ', ', '.join(reassigned), '->', new_name)
 					target_missing = True
 
 					# Identify which plant to use to merge the others into - simplest approach is to use the lowest PID
@@ -894,16 +894,16 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 									if merge_cultivar['pid'] != target_pid:
 										if merge_datafields is None or len(merge_datafields['cards']) > 0 or len(merge_datafields['databoxes']) > 0:
-											print('M     ', merge_cultivar['full_name'], '->', new_name)
+											print('M    ', merge_cultivar['full_name'], '->', new_name)
 										else:
-											print('      ', merge_cultivar['full_name'], '->', new_name)
+											print('     ', merge_cultivar['full_name'], '->', new_name)
 											if target_pid not in merges:
 												merges[target_pid] = []
 											merges[target_pid].append({'old':merge_cultivar, 'new':selection_entry, 'names': merge_datafields['common_names'], 'pids_reversed': False})
 
 				else:
 					# This should have been caught by previous code
-					print('W   ', ', '.join(reassigned), '->', new_name)
+					print('W  ', ', '.join(reassigned), '->', new_name)
 					continue
 			else:
 				new_taxon = nga_dataset[new_name]
@@ -956,10 +956,10 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'names': datafields['common_names'], 'pids_reversed': pids_reversed})
 
 			if manual_merge:
-				print('M   ', ', '.join(reassigned), '->', new_name)
+				print('M  ', ', '.join(reassigned), '->', new_name)
 
 			elif nway_merge:
-				print('    ', ', '.join(reassigned), '->', new_name)
+				print('   ', ', '.join(reassigned), '->', new_name)
 
 				# Iterate through the pairs and work out which order to combine them
 				for pid, merge in merges.items():
@@ -990,22 +990,22 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 						# Remove this pair from the list of merges
 						merge.remove(first_merge)
 						if propose:
-							print('      ', first_merge['old']['full_name'], '->', first_merge['new']['full_name'])
+							print('     ', first_merge['old']['full_name'], '->', first_merge['new']['full_name'])
 							if nga_db.proposeMerge(first_merge['old'], first_merge['new'], first_merge['names'], first_merge['pids_reversed']):
 
 								# Iterate through the remaining merges
-								for merge in merges.values():
-									for entry in merge:
-										print('      ', entry['old']['full_name'], '->', first_merge['new']['full_name'])
+								for merge_pairs in merges.values():
+									for entry in merge_pairs:
+										print('     ', entry['old']['full_name'], '->', first_merge['new']['full_name'])
 										pids_reversed = entry['old']['pid'] < new_target['pid']
 
-										# Update the target entry since this might have changed, depending on 
+										# Update the target entry since this might have changed, depending on
 										# which of the two plants in the first merge has the lower PID
 										nga_db.proposeMerge(entry['old'], new_target, entry['names'], pids_reversed)
 
 			else:
 				if not target_missing:
-					print('    ', ', '.join(reassigned), '->', new_name)
+					print('   ', ', '.join(reassigned), '->', new_name)
 
 				# for merge in merges.values():
 					# for entry in merge:
@@ -1038,9 +1038,9 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 			# Check if there is an existing proposal first
 			pid = nga.NGA.checkNewProposal(pending, new_name)
 			if pid is not None:
-				print('    ',new_name,f'[proposal {pid}]')
+				print('   ',new_name,f'[proposal {pid}]')
 			else:
-				print('    ',new_name)
+				print('   ',new_name)
 
 			if propose:
 				if pid is not None:
@@ -1081,16 +1081,16 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 				if 'remove_quotes' in hybrid_entry and hybrid_entry['remove_quotes']:
 					update_hybrid_name = True
-					print('Q   ', hybrid)
+					print('Q  ', hybrid)
 
 				# Hybrid entries that aren't registered
 				if 'registered' in hybrid_entry and not hybrid_entry['registered']:
-					print('NR  ', hybrid)
+					print('NR ', hybrid)
 
 				# Hybrid entries with missing parentage information
 				elif 'parentage_exists' in hybrid_entry and not hybrid_entry['parentage_exists'] and hybrid_entry['parentage'] is not None and not hybrid_entry['parentage']['violates_rules']:
 					update_hybrid_data = True
-					print('MP  ', hybrid, '--', hybrid_entry['parentage']['formula'])
+					print('MP ', hybrid, '--', hybrid_entry['parentage']['formula'])
 
 				# Update the hybrid entry as required
 				if propose:
