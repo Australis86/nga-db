@@ -182,54 +182,6 @@ class NGA:
 		self._session.get(self._home_url)
 
 
-	def _parseTableRow(self, row, cname_exclude=None):
-		"""Extract the plant information from a row in the NGA genus or search results table."""
-
-		# Extract the second column, as this contains the entry name
-		entry = row.findAll('td')[1]
-
-		# Link to the plant entry on the website
-		anchor = entry.find('a')
-		entry_link = anchor['href']
-		anchor_text = anchor.text
-
-		# Name components
-		# If an entry has a common name, the botanic name and cultivar will be in parentheses
-		if '(' in anchor_text:
-			regex = r'(?:\()(.+)(?:\))'
-			try:
-				entry_name = re.search(regex, anchor_text, re.DOTALL).group(1) # Remember to use group 1 here
-			except AttributeError:
-				print('\nERROR: Invalid anchor text -', anchor_text)
-				sys.exit(1)
-		else:
-			entry_name = anchor_text
-
-		italics = entry.find('i')
-		if italics is None:
-			# This was probably a parent entry
-			return (None, None, None)
-
-		botanic_name = italics.text # Botanical part
-		cultivar_name = entry_name.replace(botanic_name, '').strip() # Cultivar
-		plant_data = _generatePlantObject(entry_name, entry_link)
-
-		# Check if there is a common name
-		commonname = italics.previousSibling
-		if commonname is not None:
-			commonname = commonname.strip().strip('(').strip()
-			if commonname in botanic_name:
-				plant_data['common_name'] = True # Change common name
-			elif commonname==cname_exclude:
-				plant_data['common_name'] = True # Change common name
-				plant_data['common_exclude'] = cname_exclude
-		else:
-			plant_data['common_name'] = None # Common name missing
-
-		return (botanic_name, cultivar_name, plant_data)
-
-
-
 	def _parseGenusPage(self, page_soup, genus=None):
 		"""Parse a BeautifulSoup object returned by the _fetchGenusPage function."""
 
@@ -244,7 +196,7 @@ class NGA:
 				for row in table.findAll('tr'):
 
 					# Extract the contents of the row
-					(botanic_name, cultivar_name, plant_data) = self._parseTableRow(row, genus)
+					(botanic_name, cultivar_name, plant_data) = _parseTableRow(row, genus)
 
 					if botanic_name is not None:
 						botanic_name = botanic_name.replace('  ',' ')
@@ -391,7 +343,7 @@ class NGA:
 
 				# Process all the rows and extract the botanic and cultivar names
 				for row in rows:
-					(botanic_name, cultivar_name, plant_data) = self._parseTableRow(row)
+					(botanic_name, cultivar_name, plant_data) = _parseTableRow(row)
 					if botanic_name not in botanic_entries:
 						botanic_entries[botanic_name] = {cultivar_name: plant_data}
 					else:
@@ -561,7 +513,7 @@ class NGA:
 					continue
 
 				cells = proposal.findAll("td")
-				pid = cells[0].get_text().strip()
+				pid = int(cells[0].get_text().strip())
 				genus = cells[1].get_text().strip()
 				species = cells[2].get_text().strip()
 				cultivar = cells[3].get_text().strip()
@@ -569,7 +521,7 @@ class NGA:
 				series = cells[5].get_text().strip()
 
 				if len(cultivar) == len(tradename) == len(series) == 0:
-					botanical_name = '%s %s' % (genus, species)
+					botanical_name = f'{genus} {species}'
 					if botanical_name not in pending:
 						pending[botanical_name] = []
 
@@ -1005,6 +957,8 @@ class NGA:
 				# POST the data and automatically approve the proposal
 				return self._submitProposal(url, data)
 
+		return None
+
 
 	def proposeMerge(self, old_plant, new_plant, common_names=None, auto_approve=True):
 		"""Propose the merge of the old plant into the new plant. Ensures that the
@@ -1060,9 +1014,56 @@ def _generatePlantObject(name, url=None):
 	# Extract the plant ID
 	if url is not None:
 		pid = re.search(r'(?:/)(\d+)(?:/)', url, re.DOTALL).group(1)
-		obj['pid'] = pid
+		obj['pid'] = int(pid)
 
 	return obj
+
+
+def _parseTableRow(row, cname_exclude=None):
+	"""Extract the plant information from a row in the NGA genus or search results table."""
+
+	# Extract the second column, as this contains the entry name
+	entry = row.findAll('td')[1]
+
+	# Link to the plant entry on the website
+	anchor = entry.find('a')
+	entry_link = anchor['href']
+	anchor_text = anchor.text
+
+	# Name components
+	# If an entry has a common name, the botanic name and cultivar will be in parentheses
+	if '(' in anchor_text:
+		regex = r'(?:\()(.+)(?:\))'
+		try:
+			entry_name = re.search(regex, anchor_text, re.DOTALL).group(1) # Remember to use group 1 here
+		except AttributeError:
+			print('\nERROR: Invalid anchor text -', anchor_text)
+			sys.exit(1)
+	else:
+		entry_name = anchor_text
+
+	italics = entry.find('i')
+	if italics is None:
+		# This was probably a parent entry
+		return (None, None, None)
+
+	botanic_name = italics.text # Botanical part
+	cultivar_name = entry_name.replace(botanic_name, '').strip() # Cultivar
+	plant_data = _generatePlantObject(entry_name, entry_link)
+
+	# Check if there is a common name
+	commonname = italics.previousSibling
+	if commonname is not None:
+		commonname = commonname.strip().strip('(').strip()
+		if commonname in botanic_name:
+			plant_data['common_name'] = True # Change common name
+		elif commonname==cname_exclude:
+			plant_data['common_name'] = True # Change common name
+			plant_data['common_exclude'] = cname_exclude
+	else:
+		plant_data['common_name'] = None # Common name missing
+
+	return (botanic_name, cultivar_name, plant_data)
 
 
 def formatParentage(genus, dataset):

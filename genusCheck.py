@@ -93,7 +93,8 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 					if retname not in nga_dataset:
 						nga_dataset[retname] = nga_matches[retname]
 				else:
-					print("No exact match")
+					print(f' No exact match for {retname}')
+					#print(nga_matches)
 
 		# Exclude results where the result matches the search term or the search term is only part of the result
 		if params_an > params_st and search_term in retname:
@@ -533,20 +534,26 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 			# If this entry is missing from the NGA, check to see if it already exists as a synonym
 			if check_nga:
+				# Get all the synonyms from the COL
 				synonyms = col_engine.search(entry, True)
 				synonym_entries = {}
 
+				# If there are synonyms, check to see if there are any conflicts
 				if len(synonyms) > 0 and synonyms[0] is not None:
+					#print('\n ', entry, "has synonyms", synonyms)
 					for synonym in synonyms:
+						# For each synonym, check to see if there is already an entry in the NGA database
 						dataset = nga_db.search(synonym)
-						if dataset is not None and synonym in dataset:
-							synonym_entries[synonym] = dataset[synonym]
 
+						# If there is, check if this is valid or a questionable synonym (e.g. ambiguous or misapplied)
+						if dataset is not None and synonym in dataset:
 							# Double-check to see if this is an accepted name; sometimes names are re-used
 							synonym_check = col_engine.search(synonym)[0]
-							if synonym_check == synonym:
-								for cultivar in synonym_entries[synonym]:
-									synonym_entries[synonym][cultivar]['accepted'] = True
+							#print(' ', synonym, "has accepted name", synonym_check)
+
+							# This is a valid synonym (misapplied or ambiguous synonyms will return a different accepted name)
+							if synonym_check == entry:
+								synonym_entries[synonym] = dataset[synonym]
 
 				# No match means we can add it
 				# A match means that we need to check the nga_dataset and modify the object
@@ -555,10 +562,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				syn_count = len(synonym_entries)
 				syn_duplicate = syn_count > 1
 				if syn_count > 0:
-					#print(synonym_entries)
 
-					# Need to ensure that none of the synonyms are also accepted names
-					# Just in case a name has multiple uses
 					# For each synonym in the NGA database, ensure it is in the dataset
 					for syn_entry, cultivars_syn in synonym_entries.items():
 						if syn_entry not in nga_dataset:
@@ -578,7 +582,6 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 								cultivars_nga[cultivar]['duplicate'] = syn_duplicate
 								cultivars_nga[cultivar]['new_bot_name'] = entry
 								valid_synonyms = True
-								#print("Synonym",entry,syn_entry)
 
 				# If there were no valid synonyms (i.e. names in the database that weren't already
 				# as accepted names), add this name to the list of species to add to the database
@@ -821,9 +824,9 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 				# Warn only if it's not a natural hybrid or might be a natural hybrid
 				elif 'not_nat_hybrid' in selection_entry and selection_entry['not_nat_hybrid']:
-					print('NH  ', full_name)
+					print('NH ', full_name)
 				elif 'possible_hybrid' in selection_entry and selection_entry['possible_hybrid']:
-					print('PH  ', full_name)
+					print('PH ', full_name)
 
 				# Otherwise print any warnings
 				elif selection_entry['warning']:

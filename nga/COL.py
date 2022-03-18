@@ -87,6 +87,8 @@ class COL(GBIF):
 			return [None, 'Error retrieving taxon']
 		else:
 			rdata = req.json()
+			#print(json.dumps(rdata, indent=4, sort_keys=True))
+
 			if rdata['empty']:
 				# No match found
 				return [None, 'No match found in COL']
@@ -128,6 +130,7 @@ class COL(GBIF):
 				else:
 					synonyms = []
 					rdata = req.json()
+					#print(json.dumps(rdata, indent=4, sort_keys=True))
 
 					# Check if there are any synonyms
 					if not rdata:
