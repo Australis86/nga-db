@@ -855,7 +855,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 			target_missing = False
 			merges = {}
 
-			if new_name not in nga_dataset:
+			if new_name not in nga_dataset or '' not in nga_dataset[new_name]:
 				if len(reassigned) > 1:
 					# This indicates we have multiple names being assigned to a new name, but the new name doesn't exist yet in the database
 					# Need to select one of the existing plants to use and rename it, then merge the others into it
