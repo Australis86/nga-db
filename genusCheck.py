@@ -3,9 +3,9 @@
 """This script is intended to aid in checking and updating the contents of a
 genus in the NGA database."""
 
-__version__ = "2.0"
+__version__ = "2.1"
 __author__ = "Joshua White"
-__copyright__ = "Copyright 2019"
+__copyright__ = "Copyright 2022"
 __email__ = "jwhite88@gmail.com"
 __licence__ = "GNU Lesser General Public License v3.0"
 

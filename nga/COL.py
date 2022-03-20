@@ -4,12 +4,6 @@
 
 This script is designed for Python 3 and Beautiful Soup 4 with the lxml parser."""
 
-__version__ = "2.0"
-__author__ = "Joshua White"
-__copyright__ = "Copyright 2021"
-__email__ = "jwhite88@gmail.com"
-__licence__ = "GNU Lesser General Public License v3.0"
-
 # Module imports
 import os
 import sys
