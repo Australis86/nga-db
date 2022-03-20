@@ -60,7 +60,7 @@ class NGA:
 			self._cookiepath = nga_path
 		else:
 			self._cookiepath = os.path.join(os.path.expanduser('~'), '.nga')
-		self._nga_cookie = requests.cookies.RequestsCookieJar()
+		self._nga_cookie = requests.cookies.RequestsCookieJar() # pylint: disable=abstract-class-instantiated
 
 		# Create the session
 		self._createSession()
