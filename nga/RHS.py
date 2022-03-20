@@ -86,6 +86,7 @@ class Register:
 			req = self._session.get(url)
 		except requests.exceptions.RequestException:
 			print("Unable to retrieve RHS entry.")
+			return None
 		else:
 			# Parse the returned HTML
 			soup = BeautifulSoup(req.text, "lxml")
@@ -123,6 +124,8 @@ class Register:
 
 				return grex
 
+			return None
+
 	def cacheGrex(self, url):
 		"""Given a RHS URL, cache the entry in the database."""
 
@@ -145,7 +148,7 @@ class Register:
 
 				# Insert this into the database
 				# Since the ID is the primary key, if there is a conflict only that row should be replaced
-				sql = '''INSERT OR REPLACE INTO registrations(%s) VALUES (%s)''' % (', '.join(self._columns), ', '.join([':%s' % x for x in self._columns]))
+				sql = f'''INSERT OR REPLACE INTO registrations({', '.join(self._columns)}) VALUES ({', '.join([f':{x}' for x in self._columns])})'''
 				self._dbconn.execute(sql, dataset)
 				self._dbconn.commit()
 
@@ -185,8 +188,6 @@ class Register:
 		"""Parse a result page from the RHS search."""
 
 		rows = soup.findAll('tr')
-		if results['matches'] is None:
-			results['matches'] = {}
 
 		# For each row in the table of results, looking for hybrid entries
 		page_genus = None
@@ -248,7 +249,7 @@ class Register:
 			page_nav = soup.find('div', {'class':'pagination'})
 
 			# The first page
-			results = {'matched':False, 'matches':None, 'source':'web', 'pod_parent':None, 'pollen_parent':None}
+			results = {'matched':False, 'matches':{}, 'source':'web', 'pod_parent':None, 'pollen_parent':None}
 			results = self._parseSearchResults(soup, genus, results)
 			results['matched'] = grex in results['matches']
 

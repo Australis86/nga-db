@@ -45,8 +45,8 @@ class WCSP:
 				fields = [el.text.strip() for el in italics]
 
 				# Check for a hybrid symbol; in this case it will be at the start of the field
-				for idx in range(0, len(fields)):
-					if fields[idx][1] == ' ':
+				for idx, field in enumerate(fields):
+					if field[1] == ' ':
 						fields[idx] = fields[idx][2:]
 						hybrid = True
 
@@ -57,8 +57,8 @@ class WCSP:
 				fields = [el.strip() for el in acceptedname]
 
 				# Check for the hybrid symbol; in this case it will be a field with length 1
-				for idx in range(0, len(fields)):
-					if len(fields[idx]) == 1:
+				for idx, field in enumerate(fields):
+					if len(field) == 1:
 						fields.pop(idx)
 						hybrid = True
 						break
@@ -85,7 +85,12 @@ class WCSP:
 				dist_parent = distribution.parent
 				location = dist_parent.find('td')
 				if location is not None:
-					lines = [row.strip() for row in location.stripped_strings]
+					lines = []
+					for loc_text in location.stripped_strings:
+						rows = loc_text.split('\n')
+						rows = [row.strip() for row in rows]
+						lines += rows
+
 					result['distribution'] = '\n'.join(lines)
 
 			# Check if there is a valid distribution
@@ -96,7 +101,7 @@ class WCSP:
 
 					# Get the parentage formula and remove the genus abbreviation
 					parentage_formula = parentage.text.strip().replace(self._hybrid_symbol,'X')
-					genus_abbrev = "%c." % genus[0]
+					genus_abbrev = f'{genus[0]}.'
 					#abbrev_count = parentage_formula.count(genus_abbrev)
 					parentage_formula = parentage_formula.replace(genus_abbrev, genus)
 
