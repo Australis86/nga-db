@@ -223,13 +223,21 @@ class DCA(GBIF):
 			if 'total' in rdata and rdata['total'] == 0:
 				return (None, 'No matches found in COL search.')
 
+			# Iterate through the results
 			for res in rdata['result']:
+				# Iterate through the classification entries
 				for cls in res['classification']:
 					if 'rank' in cls and cls['rank'] == 'kingdom':
-						if cls['name'] == 'Plantae':
+						# Make sure this is an accepted genus within the plant kingdom
+						if cls['name'] == 'Plantae' and res['usage']['status'].lower() == 'accepted':
 							dataset_key = res['usage']['datasetKey']
 							taxon_id = res['id']
 							break
+				else:
+					# If the inner loop does not break, continue
+					continue
+				# If the inner loop breaks, break here too
+				break
 
 			if taxon_id is None:
 				return (None, 'No matches in the Plant kingdom found in COL search.')
