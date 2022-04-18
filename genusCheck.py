@@ -902,7 +902,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 											print('     ', merge_cultivar['full_name'], '->', new_name)
 											if target_pid not in merges:
 												merges[target_pid] = []
-											merges[target_pid].append({'old':merge_cultivar, 'new':selection_entry, 'names': merge_datafields['common_names'], 'pids_reversed': False})
+											merges[target_pid].append({'old':merge_cultivar, 'new':selection_entry, 'lnames': merge_datafields['botanical_names'], 'cnames': merge_datafields['common_names'], 'pids_reversed': False})
 
 				else:
 					# This should have been caught by previous code
@@ -956,7 +956,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 								# Multiple entries are being combined
 								nway_merge = True
 
-							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'names': datafields['common_names'], 'pids_reversed': pids_reversed})
+							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'lnames': datafields['botanical_names'], 'cnames': datafields['common_names'], 'pids_reversed': pids_reversed})
 
 			if manual_merge:
 				print('M  ', ', '.join(reassigned), '->', new_name)
@@ -994,7 +994,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 						merge.remove(first_merge)
 						if propose:
 							print('     ', first_merge['old']['full_name'], '->', first_merge['new']['full_name'])
-							if nga_db.proposeMerge(first_merge['old'], first_merge['new'], first_merge['names']):
+							if nga_db.proposeMerge(first_merge['old'], first_merge['new'], first_merge['lnames'], first_merge['cnames']):
 
 								# Iterate through the remaining merges
 								for merge_pairs in merges.values():
@@ -1003,7 +1003,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 										# Update the target entry since this might have changed, depending on
 										# which of the two plants in the first merge has the lower PID
-										nga_db.proposeMerge(entry['old'], new_target, entry['names'])
+										nga_db.proposeMerge(entry['old'], new_target, entry['lnames'], entry['cnames'])
 
 			else:
 				if not target_missing:
@@ -1016,7 +1016,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				if propose:
 					for merge in merges.values():
 						for entry in merge:
-							nga_db.proposeMerge(entry['old'], entry['new'], entry['names'])
+							nga_db.proposeMerge(entry['old'], entry['new'], entry['lnames'], entry['cnames'])
 
 	# Add any missing accepted names
 	if len(additions) > 0:

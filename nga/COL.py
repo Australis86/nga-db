@@ -15,6 +15,7 @@ import sqlite3
 import zipfile
 from sys import stdout
 from datetime import datetime, timedelta
+from time import sleep
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -135,12 +136,19 @@ class COL(GBIF):
 						for synonym in rdata[synonym_type]:
 							# This will be a list for synonyms, dict for misapplied names
 							try:
-								syn = synonym[0]
+								if isinstance(synonym, list):
+									syn = synonym[0]
+									status = syn['status'].lower()
+								else:
+									syn = synonym['name']
+									status = synonym['status'].lower()
+
 								# Status field isn't always included for some reason
-								if synonym_type == 'heterotypic' or 'misapplied' not in syn['status'].lower():
+								if synonym_type == 'heterotypic' or 'misapplied' not in status:
 									synonyms.append(syn['scientificName'])
 							except KeyError:
 								print("Warning: check synonym object")
+								print(synonym_type)
 
 					synonyms.sort()
 					return synonyms
@@ -254,6 +262,41 @@ class DCA(GBIF):
 				# This should return the export key that can be used to fetch the ZIP file
 				rdata = req.json()
 
+				# Check the status of the export
+				finished = False
+				delay = 15
+				ecount = 0
+				while not finished:
+					try:
+						# Get the status of the export
+						req = self._session.get(self._export_retrieve_url % rdata, auth=self._auth, headers={"Accept": "application/json"})
+					except requests.exceptions.RequestException as err:
+						stdout.write('e')
+						stdout.flush()
+						if ecount < 3:
+							ecount += 1
+							sleep(30)
+						else:
+							return (None, str(err))
+					else:
+						if req.status_code != 200:
+							# Something went wrong with the request
+							return (None, f'HTTP Error {req.status_code} was returned when attempting to fetch the Darwin Core Archive.')
+
+						# Extract the status field; valid responses are:
+						# waiting, blocked, running, finished, canceled, failed
+						qdata = req.json()
+						status = qdata['status'].lower().strip()
+						if status in ('canceled','failed'):
+							return (None, f'Export job {status}.')
+
+						if 'finished' in status:
+							finished = True
+						else:
+							sleep(delay)
+							stdout.write('.')
+							stdout.flush()
+
 				# Fetch the export
 				try:
 					req = self._session.get(self._export_retrieve_url % rdata, auth=self._auth, headers={"Accept": "application/octet-stream, application/zip"}, stream=True)
@@ -302,7 +345,7 @@ class DCA(GBIF):
 			print(f'Recent SQLite DB for {genus} found. Skipping download and DB build.')
 			return fpath
 
-		stdout.write('Fetching Catalogue of Life Darwin Core Archive Export... ')
+		stdout.write('Fetching Catalogue of Life Darwin Core Archive Export...')
 		stdout.flush()
 		(gpath, errmsg) = self._exportGenus(genus)
 
@@ -338,7 +381,7 @@ class DCA(GBIF):
 				for table in tables:
 					commands.append(f'.import "{genus}/{table[0]}" {table[1]}')
 
-				stdout.write('done.\r\nBuilding database... ')
+				stdout.write(' done.\r\nBuilding database... ')
 				stdout.flush()
 
 				# Create the temporary SQL file (based on provided SQLite import script)

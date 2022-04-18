@@ -366,6 +366,7 @@ class NGA:
 				'cards': [],
 				'databoxes': [],
 				'common_names': [],
+				'botanical_names': [],
 			}
 
 			# Parse the returned HTML
@@ -377,7 +378,7 @@ class NGA:
 				for card in cards:
 					contents = card.get_text().strip().strip(':')
 					# Exclude the photo gallery, plant combinations, comments and discussion threads, as these are preserved during a merge
-					if contents not in ('Photo Gallery','This plant is tagged in','Common names','Comments','Discussion Threads about this plant'):
+					if contents not in ('Botanical names','Common names','Photo Gallery','This plant is tagged in','Comments','Discussion Threads about this plant'):
 						fields['cards'].append(contents)
 
 					# Common names are not automatically transferred, but are one we can automate
@@ -387,6 +388,14 @@ class NGA:
 						for cname in cnames:
 							common_name = list(cname.stripped_strings)[-1]
 							fields['common_names'].append(titlecase(common_name))
+
+					if contents == 'Botanical names':
+						container = card.parent
+						bnames = container.findAll('li',{'class':'list-group-item'})
+						for bname in bnames:
+							botanical_name = list(bname.stripped_strings)
+							if 'synonym' in botanical_name[0].lower():
+								fields['botanical_names'].append(botanical_name[-1])
 
 			# Look for the caption element, as this indicates data tables
 			captions = soup.findAll('caption')
@@ -954,9 +963,14 @@ class NGA:
 		return None
 
 
-	def proposeMerge(self, old_plant, new_plant, common_names=None, auto_approve=True):
+	def proposeMerge(self, old_plant, new_plant, botanical_names=None, common_names=None, auto_approve=True):
 		"""Propose the merge of the old plant into the new plant. Ensures that the
 		name of the old plant is copied across to the new one as a synonym."""
+
+		if botanical_names is not None and len(botanical_names) > 0:
+			# TO DO: Pass this to proposeSynonymAddition and update proposeSynonymAddition to support lists of synonyms
+			print("\tTransfer of synonyms is not yet supported.")
+			return None
 
 		# Determine the correct order for the merge
 		reverse_order = old_plant['pid'] < new_plant['pid']
