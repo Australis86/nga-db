@@ -1056,6 +1056,7 @@ def _parseTableRow(row, cname_exclude=None):
 		return (None, None, None)
 
 	botanic_name = italics.text # Botanical part
+	genus = botanic_name.split()[0]
 	cultivar_name = entry_name.replace(botanic_name, '').strip() # Cultivar
 	plant_data = _generatePlantObject(entry_name, entry_link)
 
@@ -1063,9 +1064,9 @@ def _parseTableRow(row, cname_exclude=None):
 	commonname = italics.previousSibling
 	if commonname is not None:
 		commonname = commonname.strip().strip('(').strip()
-		if commonname in botanic_name:
+		if commonname == genus:
 			plant_data['common_name'] = True # Change common name
-		elif commonname==cname_exclude:
+		elif commonname == cname_exclude:
 			plant_data['common_name'] = True # Change common name
 			plant_data['common_exclude'] = cname_exclude
 	else:

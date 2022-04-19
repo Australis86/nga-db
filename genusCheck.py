@@ -65,10 +65,12 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 		working_name = search_term
 
 	msg = None
-	non_hyb_search_term = search_term.replace(' x ',' ')
-	results = col_obj.search(non_hyb_search_term)
+
+	# Use the proper hybrid symbol for searching the COL; at this time there is a glitch that means it is followed by a double space, rather than a single space
+	col_search_term = search_term.replace(' x ',' ×  ')
+	results = col_obj.search(col_search_term)
 	if len(results) > 1:
-		#print(' ',non_hyb_search_term,'-',results[1])
+		print(' ',col_search_term,'-',results[1])
 		msg = results[1]
 
 	retname = results[0]
@@ -76,7 +78,7 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 	duplicate = False
 
 	# Only update if the result is valid and it's not the same as either the search term or the working name
-	if retname is not None and (retname not in (search_term, non_hyb_search_term) or retname != working_name):
+	if retname is not None and (retname not in (search_term, col_search_term) or retname != working_name):
 		ret_fields = retname.split()
 		retgenus = ret_fields[0]
 		params_st = len(search_term.split())
@@ -116,16 +118,26 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orchid_extensions=False):
 	"""Compare the botanical entries in the NGA database with the DCA dataset."""
 
-	def checkHybStatus(desc, distribution=None):
+	def checkHybStatus(notho_text, description, distribution=None):
 		'''Check for hybrid status.'''
-		desc_l = desc.lower()
+
+		notho_text = notho_text.lower().strip()
+		description = description.lower().strip()
 		col_hyb = False
 		col_hyb_q = False
 		nat_hyb = False
 
-		if 'hybrid' in desc_l or 'hyrbrid' in desc_l:
+		# Newer COL datasets use the notho field
+		if len(notho_text) > 0:
 			col_hyb = True
-			col_hyb_q = '?' in desc_l
+
+			# If a distribution is provided, it's a natural hybrid
+			nat_hyb = distribution is not None and distribution != ''
+
+		# Older COL datasets use the description field
+		elif 'hybrid' in description or 'hyrbrid' in description:
+			col_hyb = True
+			col_hyb_q = '?' in description
 
 			# If a distribution is provided, it's a natural hybrid
 			nat_hyb = distribution is not None and distribution != ''
@@ -193,21 +205,31 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		# Split up the botanical name
 		fields = full_name.split()
 		if 'x' in fields:
-			fields.remove('x') # Remove the hybrid flag, as the COL doesn't use this
+			fields.remove('x') # Remove the hybrid flag, as the COL uses the proper hybrid symbol
 			nga_hyb = True
 		fcount = len(fields)
 
 		if dca_db is not None:
 			# Prepare the SQL query
 			if fcount == 2:
-				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE genericName=? AND specificEpithet=? AND upper(taxonRank)='SPECIES' AND (infraspecificEpithet='' OR infraspecificEpithet IS NULL) GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
+				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks, t.notho FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE genericName=? AND specificEpithet=? AND upper(taxonRank)='SPECIES' AND (infraspecificEpithet='' OR infraspecificEpithet IS NULL) GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
 				params = (fields[0], fields[1])
 			elif fcount == 4:
-				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID  WHERE genericName=? AND specificEpithet=? AND taxonRank=? AND infraspecificEpithet=? GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
+				# Ensure infraspecific taxon matches up properly
+				if fields[2] == 'var.':
+					fields[2] = 'variety'
+				elif fields[2] == 'subsp.':
+					fields[2] = 'subspecies'
+				elif fields[2] == 'ssp.':
+					fields[2] = 'subspecies'
+				elif fields[2] == 'f.':
+					fields[2] = 'form'
+
+				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks, t.notho FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID  WHERE genericName=? AND specificEpithet=? AND taxonRank=? AND infraspecificEpithet=? GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
 				params = (fields[0], fields[1], fields[2], fields[3])
 			elif fcount == 3:
 				# Check if it's missing the infraspecific qualifer
-				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID  WHERE genericName=? AND specificEpithet=? AND infraspecificEpithet=? GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
+				sql = "SELECT t.taxonomicStatus, d.locality, t.taxonRemarks, t.notho FROM Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID  WHERE genericName=? AND specificEpithet=? AND infraspecificEpithet=? GROUP BY taxonomicStatus ORDER BY taxonomicStatus LIMIT 1"
 				params = (fields[0], fields[1], fields[2])
 			else:
 				# Not sure what happened here...
@@ -226,9 +248,10 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			status = results[0][0].lower()
 			distribution = results[0][1]
 			description = results[0][2]
+			notho = results[0][3]
 
 			# Check if hybrid (make sure it's not in question)
-			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(description, distribution)
+			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(notho, description, distribution)
 
 			# Name is accepted
 			if 'accepted' in status:
@@ -488,7 +511,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 	if dca_db is not None:
 		# Check for missing accepted names
-		sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' ELSE '' END || ' ' || infraspecificEpithet as epithet, locality, taxonRemarks from Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE upper(taxonomicStatus)='ACCEPTED' AND specificEpithet!='' GROUP BY epithet"
+		sql = "SELECT genericName || ' ' || specificEpithet || ' ' || CASE WHEN upper(taxonRank)='FORM' THEN 'f.' WHEN upper(taxonRank)='VARIETY' THEN 'var.' WHEN upper(taxonRank)='SUBSPECIES' THEN 'subsp.' WHEN upper(taxonRank)='FORM' THEN 'f.' ELSE '' END || ' ' || infraspecificEpithet as epithet, locality, taxonRemarks, notho from Taxon t LEFT JOIN Distribution d ON t.taxonID=d.taxonID WHERE upper(taxonomicStatus)='ACCEPTED' AND specificEpithet!='' GROUP BY epithet"
 		cur.execute(sql)
 		rows = cur.fetchall()
 
@@ -509,10 +532,11 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			entry_final = entry # Version of name to be added to list
 			distribution = row[1] # Natural distribution
 			description = row[2] # Descriptive notes
+			notho = row[3] # Hybrid status
 			check_nga = False
 
 			# Check hybrid status
-			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(description, distribution)
+			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(notho, description, distribution)
 
 			# If it's not a hybrid or a questionable one, check against the pending lists
 			if not col_hyb or (col_hyb and col_hyb_q):
