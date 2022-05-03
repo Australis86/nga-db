@@ -581,7 +581,7 @@ class NGA:
 		self._submitProposal(self._new_plant_url, params)
 
 
-	def proposeSynonymAddition(self, plant, synonym, common_names=None, auto_approve=True):
+	def proposeSynonymAddition(self, plant, synonyms, common_names=None, auto_approve=True):
 		"""Propose the addition of a synonym to a plant entry in the database.
 		Expects 'plant' to be a dictionary:
 			- new_bot_name = botanical name to add or replace
@@ -590,7 +590,7 @@ class NGA:
 			- full_name = the full name for the plant (for debug purposes)
 
 		Other arguments:
-			- synonym = name to add
+			- synonyms = list of synonyms to add (if not already present)
 			- common_names = list of common names to add (if not already present)
 
 		Returns:
@@ -632,10 +632,10 @@ class NGA:
 					lparams[name_id]['latin'] = i['value']
 
 					# Check if the synonym is already present
-					# TO DO: Check for misspellings in future?
-					if synonym in i['value'].strip():
-						# Don't need to continue as the synonym is already there
-						return True
+					# TO DO: Check for misspellings in future
+					latin_name = i['value'].strip()
+					if latin_name in synonyms:
+						synonyms.remove(latin_name)
 
 				# Get the current status of the name
 				else:
@@ -643,8 +643,13 @@ class NGA:
 					svalue = selector[0]['value']
 					lparams[name_id]['latin_status'] = svalue
 
+			syn_count = len(synonyms)
+			if syn_count < 1:
+				# Don't need to continue as the synonym is already there
+				return True
+
 			# Add the new name as a synonym
-			lparams['new'] = {'latin':synonym, 'latin_status':'synonym'}
+			lparams['new'] = {'latin':synonyms, 'latin_status':['synonym']*syn_count}
 
 			# Add the latin names to the object
 			for param in lparams:
@@ -669,13 +674,13 @@ class NGA:
 					data['common[]'] = common_names
 			else:
 				# Prepare data for common name validation
-				synonym_genus = None
+				synonym_genera = None
 				if common_names is not None and len(common_names) > 0:
 					common_lower = {name.lower():name for name in common_names}
 				else:
 					common_lower = {}
 
-				synonym_genus = synonym.split(' ')[0].strip().lower()
+				synonym_genera = [synonym.split(' ')[0].strip().lower() for synonym in synonyms]
 
 				# Cycle through the existing common names and ensure they are included
 				# (unless they are the genus)
@@ -687,7 +692,7 @@ class NGA:
 						common_names.remove(common_lower[common_tidied])
 
 					# If the common name isn't the genus, copy it
-					if common_tidied not in (synonym_genus, cname_exclude):
+					if common_tidied not in synonym_genera + [cname_exclude]:
 						data[cname['name']] = cname['value']
 
 				# If the provided common name wasn't listed, add it
@@ -967,22 +972,29 @@ class NGA:
 		"""Propose the merge of the old plant into the new plant. Ensures that the
 		name of the old plant is copied across to the new one as a synonym."""
 
-		if botanical_names is not None and len(botanical_names) > 0:
-			# TO DO: Pass this to proposeSynonymAddition and update proposeSynonymAddition to support lists of synonyms
-			print("\tTransfer of synonyms is not yet supported.")
-			return None
-
 		# Determine the correct order for the merge
 		reverse_order = old_plant['pid'] < new_plant['pid']
 
 		if reverse_order:
+			if botanical_names is not None and len(botanical_names) > 0:
+				# Add existing synonyms
+				name_update = self.proposeSynonymAddition(old_plant, botanical_names, common_names, auto_approve)
+				if not name_update:
+					return None
+
 			# Update the name of the old plant, since this entry will be kept
 			# This will fix misspellings and set the new accepted name if required
 			name_update = self.proposeNameChange(old_plant, common_names, auto_approve)
 		else:
+			if botanical_names is not None and len(botanical_names) > 0:
+				# Add existing synonyms
+				name_update = self.proposeSynonymAddition(new_plant, botanical_names, common_names, auto_approve)
+				if not name_update:
+					return None
+
 			if not ('rename' in old_plant and old_plant['rename']):
 				# Update the name of the new entry, adding the old as a synonym
-				name_update = self.proposeSynonymAddition(new_plant, old_plant['full_name'], common_names, auto_approve)
+				name_update = self.proposeSynonymAddition(new_plant, [old_plant['full_name']], common_names, auto_approve)
 			else:
 				# Old entry is just a misspelling, so we don't need to keep the name
 				name_update = True
