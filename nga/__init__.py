@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 """This package contains functions for managing and updating the NGA database."""
 

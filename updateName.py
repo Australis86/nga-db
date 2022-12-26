@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 """This script is a sample snippet to demonstrate updating a botanical name (i.e. replacing an invalid taxon with the genus)."""
 

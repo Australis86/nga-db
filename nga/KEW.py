@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 """Module for searching the KEW Word Checklist of Selected Plant Families (WCSP).
 

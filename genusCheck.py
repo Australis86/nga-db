@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 """This script is intended to aid in checking and updating the contents of a
 genus in the NGA database."""
@@ -74,7 +74,6 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 		msg = results[1]
 
 	retname = results[0]
-	current_names = nga_dataset.keys()
 	duplicate = False
 
 	# Only update if the result is valid and it's not the same as either the search term or the working name
@@ -83,7 +82,6 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 		retgenus = ret_fields[0]
 		params_st = len(search_term.split())
 		params_an = len(ret_fields)
-		duplicate = (retname in current_names)
 
 		# If this name is not in working_genus and not in current_names, search the NGA
 		if retgenus != working_genus:
@@ -106,7 +104,8 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 			for cultivar in nga_dataset[working_name]:
 				nga_dataset[working_name][cultivar]['new_bot_name'] = retname
 				nga_dataset[working_name][cultivar]['changed'] = True
-				nga_dataset[working_name][cultivar]['duplicate'] = duplicate
+				nga_dataset[working_name][cultivar]['duplicate'] = retname in nga_dataset and cultivar in nga_dataset[retname]
+				#print(nga_dataset[working_name][cultivar])
 
 				if nga_hyb_status:
 					nga_dataset[working_name][cultivar]['warning'] = True
@@ -838,13 +837,18 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 						msg = ''
 						if 'duplicate' in selection_entry and selection_entry['duplicate']:
 							msg = "(New name already exists in NGA database)"
-						elif selection_entry['new_bot_name'] in reassignments and len(reassignments[selection_entry['new_bot_name']]) > 1:
-							msg = "(Multiple names reassigned to this taxon)"
+						elif len(selection_name) < 1:
+							if selection_entry['new_bot_name'] in reassignments and len(reassignments[selection_entry['new_bot_name']]) > 1:
+								msg = "(Multiple names reassigned to this taxon)"
+							else:
+								update_selected_name = True
+								print('   ', botanical_name, '->', selection_entry['new_bot_name'], msg)
+								if selection_entry['new_bot_name'] in reassignments:
+									del reassignments[selection_entry['new_bot_name']]
 						else:
+							# This should handle cultivars that just need a botanical name update
 							update_selected_name = True
-							print('   ', botanical_name, '->', selection_entry['new_bot_name'], msg)
-							if selection_entry['new_bot_name'] in reassignments:
-								del reassignments[selection_entry['new_bot_name']]
+							print('   ', full_name, '->', selection_entry['new_bot_name'], selection_name, msg)
 
 				# Warn only if it's not a natural hybrid or might be a natural hybrid
 				elif 'not_nat_hybrid' in selection_entry and selection_entry['not_nat_hybrid']:
@@ -949,9 +953,8 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 								cultivar = new_taxon[selection_name]
 								cultivar_pid = cultivar['pid']
 							else:
-								# TO DO: Just need to rename the existing cultivar
 								manual_merge = True
-								print(f'TO DO: Rename existing cultivar with name {selection_name}')
+								print(f'W   Existing cultivar {botanical_name} {selection_name} -> {new_name} {selection_name} may need to be manually updated')
 								break
 						else:
 							cultivar_entry = botanical_taxon

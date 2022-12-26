@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 """Module for searching the RHS Orchid Register and caching registration details.
 

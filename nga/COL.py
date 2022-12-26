@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 """Module for interacting with the Catalogue of Life API.
 
@@ -144,11 +144,23 @@ class COL(GBIF):
 									status = synonym['status'].lower()
 
 								# Status field isn't always included for some reason
-								if synonym_type == 'heterotypic' or 'misapplied' not in status:
-									synonyms.append(syn['scientificName'])
-							except KeyError:
-								print("Warning: check synonym object")
-								print(synonym_type)
+								if synonym_type == 'heterotypicGroups':
+									s = syn['name']['scientificName']
+									if s not in synonyms:
+										synonyms.append(s)
+								elif synonym_type == 'heterotypic' or 'misapplied' not in status:
+									s = syn['scientificName']
+									if s not in synonyms:
+										synonyms.append(s)
+							except KeyError as e:
+								print()
+								print("Warning: check synonym object - unhandled synonym type %s" % synonym_type)
+								print()
+								print("Raw data as follows")
+								for k in rdata.keys():
+									print()
+									print('Synonym Type:', k)
+									print(rdata[k])
 
 					synonyms.sort()
 					return synonyms
