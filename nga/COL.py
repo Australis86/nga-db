@@ -154,7 +154,7 @@ class COL(GBIF):
 										synonyms.append(sname)
 							except KeyError:
 								print()
-								print("Warning: check synonym object - unhandled synonym type %s" % synonym_type)
+								print("Warning: check synonym object - unhandled synonym type", synonym_type)
 								print()
 								print("Raw data as follows")
 								for k in rdata.keys():
@@ -476,7 +476,7 @@ def _createAuthFile(auth_file):
 	pwd = getpass.getpass()
 
 	# Test the credentials
-	req = requests.get("https://api.checklistbank.org/user/me", auth=HTTPBasicAuth(user, pwd), headers={'accept': 'application/json'})
+	req = requests.get("https://api.checklistbank.org/user/me", auth=HTTPBasicAuth(user, pwd), headers={'accept': 'application/json'}, timeout=30)
 	if req.status_code != 200:
 		raise PermissionError("Failed to authenticate with the COL API.")
 
