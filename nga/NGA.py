@@ -403,7 +403,7 @@ class NGA:
 				for caption in captions:
 					contents = caption.get_text().strip().split(' (')[0]
 					# Exclude plant events, as these are preserved during a merge
-					if contents not in ('Plant Events from our members'):
+					if contents not in 'Plant Events from our members':
 						fields['databoxes'].append(contents)
 
 			#if len(fields['cards']) > 0 or len(fields['databoxes']) > 0:

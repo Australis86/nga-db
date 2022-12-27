@@ -145,14 +145,14 @@ class COL(GBIF):
 
 								# Status field isn't always included for some reason
 								if synonym_type == 'heterotypicGroups':
-									s = syn['name']['scientificName']
-									if s not in synonyms:
-										synonyms.append(s)
+									sname = syn['name']['scientificName']
+									if sname not in synonyms:
+										synonyms.append(sname)
 								elif synonym_type == 'heterotypic' or 'misapplied' not in status:
-									s = syn['scientificName']
-									if s not in synonyms:
-										synonyms.append(s)
-							except KeyError as e:
+									sname = syn['scientificName']
+									if sname not in synonyms:
+										synonyms.append(sname)
+							except KeyError:
 								print()
 								print("Warning: check synonym object - unhandled synonym type %s" % synonym_type)
 								print()
