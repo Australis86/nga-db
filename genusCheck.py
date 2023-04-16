@@ -31,10 +31,12 @@ def initMenu():
 
 	parser = argparse.ArgumentParser()
 
-	parser.add_argument("-g", "--genus", help="genus name", required=True)
+	parser.add_argument("genus", help="genus name")
 	parser.add_argument("-e", "--existing", help="do not check for existing new plant proposals",
 		action="store_false", default=True)
 	parser.add_argument("-p", "--propose", help="automatically propose and approve (if possible) changes to the NGA database",
+		action="store_true")
+	parser.add_argument("-d", "--deprecated", help="allow script to continue for deprecated genera (no COL DWA export available)",
 		action="store_true")
 
 	# The orchid flag and the common name flag conflict, so we add them to a mutually exclusive group
@@ -1147,9 +1149,9 @@ def main(namespace_args):
 	darwin_core.setCache(namespace_args.cache)
 	dca_cache = darwin_core.fetchGenus(namespace_args.genus)
 
-	#if dca_cache is None:
-	#	print("Error: unable to continue without current genus dataset.")
-	#	sys.exit(1)
+	if dca_cache is None and not namespace_args.deprecated:
+		print("Error: unable to continue without COL DCA dataset. If this is a deprecated genus, try using the -d flag.")
+		sys.exit(1)
 
 	# Fetch current NGA database list
 	nga_db = nga.NGA.NGA()

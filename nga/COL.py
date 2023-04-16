@@ -461,8 +461,7 @@ class DCA(GBIF):
 			if os.path.exists(fpath):
 				print("Using old dataset - entries may be out of date!")
 			else:
-				print("Unable to continue without COL DWA dataset.")
-				sys.exit(1)
+				print("No COL DWA dataset available!")
 
 		return None
 
