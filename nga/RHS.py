@@ -81,44 +81,45 @@ class Register:
 		except requests.exceptions.RequestException:
 			print("Unable to retrieve RHS entry.")
 			return None
-		else:
-			# Parse the returned HTML
-			soup = BeautifulSoup(req.text, "lxml")
-			tables = soup.findAll('table', {'class':'results'})
-			grex = {}
 
-			if len(tables) == 2:
-				# Process the first table containing the epithet and registration info
-				entry = tables[0]
-				rows = entry.findAll('tr')
+		# Parse the returned HTML
+		soup = BeautifulSoup(req.text, "lxml")
+		tables = soup.findAll('table', {'class':'results'})
+		grex = {}
 
-				# Iterate through the rows of the table
-				# First column should be the field name and second is the value
-				for row in rows:
-					cells = row.findAll('td')
-					grex[cells[0].text] = cells[1].text
+		if len(tables) == 2:
+			# Process the first table containing the epithet and registration info
+			entry = tables[0]
+			rows = entry.findAll('tr')
 
-				# Process the second table containing the parentage information
-				parentage = tables[1]
-				tbody = parentage.find('tbody')
-				rows = tbody.findAll('tr')
+			# Iterate through the rows of the table
+			# First column should be the field name and second is the value
+			for row in rows:
+				cells = row.findAll('td')
+				grex[cells[0].text] = cells[1].text
 
-				# Iterate through the rows of the table
-				# First column is the field name, second is the pod parent info and third is the pollen parent info
-				for row in rows:
-					fieldname = row.find('th')
-					fieldvalues = row.findAll('td')
-					grex[f'Pod Parent {fieldname.text}'] = fieldvalues[0].text.replace('{var}','var.').replace('{subsp}','subsp.').replace('(','[').replace(')',']')
-					grex[f'Pollen Parent {fieldname.text}'] = fieldvalues[1].text.replace('{var}','var.').replace('{subsp}','subsp.').replace('(','[').replace(')',']')
+			# Process the second table containing the parentage information
+			parentage = tables[1]
+			tbody = parentage.find('tbody')
+			rows = tbody.findAll('tr')
 
-				# Finally, extract the RHS ID number from the URL
-				matches = re.findall(r'\d+', url)
-				if matches is not None and len(matches) > 0:
-					grex['uid'] = int(matches[0])
+			# Iterate through the rows of the table
+			# First column is the field name, second is the pod parent info and third is the pollen parent info
+			for row in rows:
+				fieldname = row.find('th')
+				fieldvalues = row.findAll('td')
+				grex[f'Pod Parent {fieldname.text}'] = fieldvalues[0].text.replace('{var}','var.').replace('{subsp}','subsp.').replace('(','[').replace(')',']')
+				grex[f'Pollen Parent {fieldname.text}'] = fieldvalues[1].text.replace('{var}','var.').replace('{subsp}','subsp.').replace('(','[').replace(')',']')
 
-				return grex
+			# Finally, extract the RHS ID number from the URL
+			matches = re.findall(r'\d+', url)
+			if matches is not None and len(matches) > 0:
+				grex['uid'] = int(matches[0])
 
-			return None
+			return grex
+
+		return None
+
 
 	def cacheGrex(self, url):
 		"""Given a RHS URL, cache the entry in the database."""
@@ -237,48 +238,48 @@ class Register:
 			req = self._session.get(self._search_url, params=url_params)
 		except requests.exceptions.RequestException:
 			return None
-		else:
-			# Parse the returned HTML
-			soup = BeautifulSoup(req.text, "lxml")
-			page_nav = soup.find('div', {'class':'pagination'})
 
-			# The first page
-			results = {'matched':False, 'matches':{}, 'source':'web', 'pod_parent':None, 'pollen_parent':None}
-			results = self._parseSearchResults(soup, genus, results)
-			results['matched'] = grex in results['matches']
+		# Parse the returned HTML
+		soup = BeautifulSoup(req.text, "lxml")
+		page_nav = soup.find('div', {'class':'pagination'})
 
-			# If it's not matched and there are more pages, fetch those, too
-			if not results['matched']  and page_nav is not None:
-				pages = page_nav.findAll('li')
-				for page in pages:
-					anchor = page.find('a')
-					if anchor is not None: # The first page won't have a link
-						link = anchor['href']
+		# The first page
+		results = {'matched':False, 'matches':{}, 'source':'web', 'pod_parent':None, 'pollen_parent':None}
+		results = self._parseSearchResults(soup, genus, results)
+		results['matched'] = grex in results['matches']
 
-						try:
-							req = self._session.get(urljoin(self._search_url, link))
-						except requests.exceptions.RequestException:
-							return None
-						else:
-							# Parse the returned HTML
-							soup = BeautifulSoup(req.text, "lxml")
-							results = self._parseSearchResults(soup, genus, results)
-							results['matched'] = grex in results['matches']
-							if results['matched']:
-								break # No need to keep looping
+		# If it's not matched and there are more pages, fetch those, too
+		if not results['matched']  and page_nav is not None:
+			pages = page_nav.findAll('li')
+			for page in pages:
+				anchor = page.find('a')
+				if anchor is not None: # The first page won't have a link
+					link = anchor['href']
 
-			# Automatically cache results
-			if self._dbconn is not None:
-				if results['matched'] :
-					dataset = self.cacheGrex(results['matches'][grex])
+					try:
+						req = self._session.get(urljoin(self._search_url, link))
+					except requests.exceptions.RequestException:
+						return None
 
-					if dataset is not None:
-						results['pod_parent'] = (dataset['pod_parent_genus'],dataset['pod_parent_epithet'])
-						results['pollen_parent'] = (dataset['pollen_parent_genus'],dataset['pollen_parent_epithet'])
-				else:
-					self.cacheInvalidSearch(genus, grex)
+					# Parse the returned HTML
+					soup = BeautifulSoup(req.text, "lxml")
+					results = self._parseSearchResults(soup, genus, results)
+					results['matched'] = grex in results['matches']
+					if results['matched']:
+						break # No need to keep looping
 
-			return results
+		# Automatically cache results
+		if self._dbconn is not None:
+			if results['matched'] :
+				dataset = self.cacheGrex(results['matches'][grex])
+
+				if dataset is not None:
+					results['pod_parent'] = (dataset['pod_parent_genus'],dataset['pod_parent_epithet'])
+					results['pollen_parent'] = (dataset['pollen_parent_genus'],dataset['pollen_parent_epithet'])
+			else:
+				self.cacheInvalidSearch(genus, grex)
+
+		return results
 
 
 def testModule(database='./RHS.db'):

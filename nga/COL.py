@@ -79,110 +79,109 @@ class COL(GBIF):
 			req = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
 		except requests.exceptions.RequestException:
 			return [None, 'Error retrieving taxon']
+
+		rdata = req.json()
+		#print(json.dumps(rdata, indent=4, sort_keys=True))
+
+		if rdata['empty']:
+			# No match found
+			return [None, 'No match found in COL']
+
+		illegal_status = []
+		if len(rdata['result']) > 0:
+			closest = None
+			for result in rdata['result']:
+				# Need to make sure we're only using entries from the plant kingdom
+				kingdom = False
+				for cls in result['classification']:
+					if 'rank' in cls and cls['rank'] == 'kingdom':
+						if cls['name'] == 'Plantae':
+							kingdom = True
+
+				rstatus = result['usage']['status'].lower()
+				if kingdom:
+					# Exclude illegal or ambiguous names
+					if ('misapplied' not in rstatus) and ('ambiguous' not in rstatus):
+						closest = result
+						break
+					if rstatus not in illegal_status:
+						illegal_status.append(rstatus)
+				else:
+					illegal_status.append('not in the plant kingdom')
 		else:
+			closest = rdata['result'][0]
+
+		if fetch_synonyms:
+			# Get the taxon ID so that we can get the synonyms
+			taxon_id = closest['id']
+			dataset_key = closest['usage']['datasetKey']
+
+			# Post to the asynchronous API (this requests a build of an export)
+			try:
+				req = self._session.get(self._synonym_url % (dataset_key, taxon_id), auth=self._auth, headers={"Content-Type": "application/json"})
+			except requests.exceptions.RequestException:
+				return [None, 'Unable to retrieve synonyms from COL']
+
+			synonyms = []
 			rdata = req.json()
 			#print(json.dumps(rdata, indent=4, sort_keys=True))
 
-			if rdata['empty']:
-				# No match found
-				return [None, 'No match found in COL']
+			# Check if there are any synonyms
+			if not rdata:
+				return [None, 'No synonyms available in COL']
 
-			illegal_status = []
-			if len(rdata['result']) > 0:
-				closest = None
-				for result in rdata['result']:
-					# Need to make sure we're only using entries from the plant kingdom
-					kingdom = False
-					for cls in result['classification']:
-						if 'rank' in cls and cls['rank'] == 'kingdom':
-							if cls['name'] == 'Plantae':
-								kingdom = True
+			# Iterate through the types of synonyms and collect the botanical names
+			for synonym_type in rdata:
+				for synonym in rdata[synonym_type]:
+					# This will be a list for synonyms, dict for misapplied names
+					try:
+						if isinstance(synonym, list):
+							syn = synonym[0]
+							status = syn['status'].lower()
+						else:
+							syn = synonym['name']
+							status = synonym['status'].lower()
 
-					rstatus = result['usage']['status'].lower()
-					if kingdom:
-						# Exclude illegal or ambiguous names
-						if ('misapplied' not in rstatus) and ('ambiguous' not in rstatus):
-							closest = result
-							break
-						if rstatus not in illegal_status:
-							illegal_status.append(rstatus)
-					else:
-						illegal_status.append('not in the plant kingdom')
-			else:
-				closest = rdata['result'][0]
+						# Status field isn't always included for some reason
+						if synonym_type == 'heterotypicGroups':
+							sname = syn['name']['scientificName']
+							if sname not in synonyms:
+								synonyms.append(sname)
+						elif synonym_type == 'heterotypic' or 'misapplied' not in status:
+							sname = syn['scientificName']
+							if sname not in synonyms:
+								synonyms.append(sname)
+					except KeyError:
+						print()
+						print("Warning: check synonym object - unhandled synonym type", synonym_type)
+						print()
+						print("Raw data as follows")
+						for k in rdata.keys():
+							print()
+							print('Synonym Type:', k)
+							print(rdata[k])
 
-			if fetch_synonyms:
-				# Get the taxon ID so that we can get the synonyms
-				taxon_id = closest['id']
-				dataset_key = closest['usage']['datasetKey']
+			synonyms.sort()
+			return synonyms
 
-				# Post to the asynchronous API (this requests a build of an export)
-				try:
-					req = self._session.get(self._synonym_url % (dataset_key, taxon_id), auth=self._auth, headers={"Content-Type": "application/json"})
-				except requests.exceptions.RequestException:
-					return [None, 'Unable to retrieve synonyms from COL']
-				else:
-					synonyms = []
-					rdata = req.json()
-					#print(json.dumps(rdata, indent=4, sort_keys=True))
+		# If we don't need the synonyms, then everything we need is in this result dataset
+		if closest is not None:
+			usage = closest['usage']
+			status = usage['status'].lower()
+		else:
+			status = ''
 
-					# Check if there are any synonyms
-					if not rdata:
-						return [None, 'No synonyms available in COL']
+		if 'accepted' in status:
+			acceptedname = usage['name']
+		elif 'synonym' in status:
+			acceptedname = usage['accepted']['name']
+		else:
+			if len(illegal_status) > 0:
+				return [None, f'Invalid status: {("/".join(illegal_status))}']
 
-					# Iterate through the types of synonyms and collect the botanical names
-					for synonym_type in rdata:
-						for synonym in rdata[synonym_type]:
-							# This will be a list for synonyms, dict for misapplied names
-							try:
-								if isinstance(synonym, list):
-									syn = synonym[0]
-									status = syn['status'].lower()
-								else:
-									syn = synonym['name']
-									status = synonym['status'].lower()
+			return [None, 'No accepted or synonym name available from COL']
 
-								# Status field isn't always included for some reason
-								if synonym_type == 'heterotypicGroups':
-									sname = syn['name']['scientificName']
-									if sname not in synonyms:
-										synonyms.append(sname)
-								elif synonym_type == 'heterotypic' or 'misapplied' not in status:
-									sname = syn['scientificName']
-									if sname not in synonyms:
-										synonyms.append(sname)
-							except KeyError:
-								print()
-								print("Warning: check synonym object - unhandled synonym type", synonym_type)
-								print()
-								print("Raw data as follows")
-								for k in rdata.keys():
-									print()
-									print('Synonym Type:', k)
-									print(rdata[k])
-
-					synonyms.sort()
-					return synonyms
-
-			else:
-				# If we don't need the synonyms, then everything we need is in this result dataset
-				if closest is not None:
-					usage = closest['usage']
-					status = usage['status'].lower()
-				else:
-					status = ''
-
-				if 'accepted' in status:
-					acceptedname = usage['name']
-				elif 'synonym' in status:
-					acceptedname = usage['accepted']['name']
-				else:
-					if len(illegal_status) > 0:
-						return [None, f'Invalid status: {("/".join(illegal_status))}']
-
-					return [None, 'No accepted or synonym name available from COL']
-
-				return [acceptedname['scientificName']]
+		return [acceptedname['scientificName']]
 
 
 class DCA(GBIF):
@@ -235,106 +234,106 @@ class DCA(GBIF):
 			req = self._session.get(self._search_url, params=params, headers={'accept': 'application/json'})
 		except requests.exceptions.RequestException:
 			return (None, 'Unable to retrieve taxon ID.')
-		else:
-			rdata = req.json()
-			taxon_id = None
 
-			if 'total' in rdata and rdata['total'] == 0:
-				return (None, 'No matches found in COL search.')
+		rdata = req.json()
+		taxon_id = None
 
-			# Iterate through the results
-			for res in rdata['result']:
-				# Iterate through the classification entries
-				for cls in res['classification']:
-					if 'rank' in cls and cls['rank'] == 'kingdom':
-						# Make sure this is an accepted genus within the plant kingdom
-						if cls['name'] == 'Plantae' and res['usage']['status'].lower() == 'accepted':
-							dataset_key = res['usage']['datasetKey']
-							taxon_id = res['id']
-							break
-				else:
-					# If the inner loop does not break, continue
-					continue
-				# If the inner loop breaks, break here too
-				break
+		if 'total' in rdata and rdata['total'] == 0:
+			return (None, 'No matches found in COL search.')
 
-			if taxon_id is None:
-				return (None, 'No matches in the Plant kingdom found in COL search.')
-
-			# Prepare the export data
-			data = {"format":"DWCA", "root":{"id":taxon_id}, "synonyms": True}
-
-			# Post to the asynchronous API (this requests a build of an export)
-			try:
-				req = self._session.post(self._export_request_url % dataset_key, auth=self._auth, data=json.dumps(data), headers={"Content-Type": "application/json"})
-			except requests.exceptions.RequestException:
-				return (None, 'Unable to request build of the Darwin Core Archive.')
+		# Iterate through the results
+		for res in rdata['result']:
+			# Iterate through the classification entries
+			for cls in res['classification']:
+				if 'rank' in cls and cls['rank'] == 'kingdom':
+					# Make sure this is an accepted genus within the plant kingdom
+					if cls['name'] == 'Plantae' and res['usage']['status'].lower() == 'accepted':
+						dataset_key = res['usage']['datasetKey']
+						taxon_id = res['id']
+						break
 			else:
-				# This should return the export key that can be used to fetch the ZIP file
-				rdata = req.json()
+				# If the inner loop does not break, continue
+				continue
+			# If the inner loop breaks, break here too
+			break
 
-				# Check the status of the export
-				finished = False
-				delay = 15
-				ecount = 0
-				while not finished:
-					try:
-						# Get the status of the export
-						req = self._session.get(self._export_retrieve_url % rdata, auth=self._auth, headers={"Accept": "application/json"})
-					except requests.exceptions.RequestException as err:
-						stdout.write('e')
-						stdout.flush()
-						if ecount < 3:
-							ecount += 1
-							sleep(30)
-						else:
-							return (None, str(err))
-					else:
-						if req.status_code != 200:
-							# Something went wrong with the request
-							return (None, f'HTTP Error {req.status_code} was returned when attempting to fetch the Darwin Core Archive.')
+		if taxon_id is None:
+			return (None, 'No matches in the Plant kingdom found in COL search.')
 
-						# Extract the status field; valid responses are:
-						# waiting, blocked, running, finished, canceled, failed
-						qdata = req.json()
-						status = qdata['status'].lower().strip()
-						if status in ('canceled','failed'):
-							return (None, f'Export job {status}.')
+		# Prepare the export data
+		data = {"format":"DWCA", "root":{"id":taxon_id}, "synonyms": True}
 
-						if 'finished' in status:
-							finished = True
-						else:
-							sleep(delay)
-							stdout.write('.')
-							stdout.flush()
+		# Post to the asynchronous API (this requests a build of an export)
+		try:
+			req = self._session.post(self._export_request_url % dataset_key, auth=self._auth, data=json.dumps(data), headers={"Content-Type": "application/json"})
+		except requests.exceptions.RequestException:
+			return (None, 'Unable to request build of the Darwin Core Archive.')
 
-				# Fetch the export
-				try:
-					req = self._session.get(self._export_retrieve_url % rdata, auth=self._auth, headers={"Accept": "application/octet-stream, application/zip"}, stream=True)
-				except requests.exceptions.RequestException:
-					return (None, None)
+		# This should return the export key that can be used to fetch the ZIP file
+		rdata = req.json()
+
+		# Check the status of the export
+		finished = False
+		delay = 15
+		ecount = 0
+		while not finished:
+			try:
+				# Get the status of the export
+				req = self._session.get(self._export_retrieve_url % rdata, auth=self._auth, headers={"Accept": "application/json"})
+			except requests.exceptions.RequestException as err:
+				stdout.write('e')
+				stdout.flush()
+				if ecount < 3:
+					ecount += 1
+					sleep(30)
 				else:
-					if req.status_code != 200:
-						return (None, f'HTTP Error {req.status_code} was returned when attempting to fetch the Darwin Core Archive.')
+					return (None, str(err))
+			else:
+				if req.status_code != 200:
+					# Something went wrong with the request
+					return (None, f'HTTP Error {req.status_code} was returned when attempting to fetch the Darwin Core Archive.')
 
-					# Write out the file stream received
-					with open(zpath, 'wb') as output:
-						for chunk in req.iter_content(1024):
-							output.write(chunk)
+				# Extract the status field; valid responses are:
+				# waiting, blocked, running, finished, canceled, failed
+				qdata = req.json()
+				status = qdata['status'].lower().strip()
+				if status in ('canceled','failed'):
+					return (None, f'Export job {status}.')
 
-				# If the zip file successfully downloaded and is a valid zipfile, extract it
-				if os.path.exists(zpath):
-					if zipfile.is_zipfile(zpath):
-						with zipfile.ZipFile(zpath) as zfile:
-							gpath = os.path.join(self.__cache, genus) # Create a subfolder in the cache directory using the genus name
-							zfile.extractall(gpath) # Extract the zip file into the new subfolder
-					else:
-						errmsg = "The downloaded Darwin Core Archive export was not a valid zip file."
-						gpath = None
-						keep_zip = False
+				if 'finished' in status:
+					finished = True
+				else:
+					sleep(delay)
+					stdout.write('.')
+					stdout.flush()
 
-					if not keep_zip:
-						os.remove(zpath)
+		# Fetch the export
+		try:
+			req = self._session.get(self._export_retrieve_url % rdata, auth=self._auth, headers={"Accept": "application/octet-stream, application/zip"}, stream=True)
+		except requests.exceptions.RequestException:
+			return (None, None)
+
+		if req.status_code != 200:
+			return (None, f'HTTP Error {req.status_code} was returned when attempting to fetch the Darwin Core Archive.')
+
+		# Write out the file stream received
+		with open(zpath, 'wb') as output:
+			for chunk in req.iter_content(1024):
+				output.write(chunk)
+
+		# If the zip file successfully downloaded and is a valid zipfile, extract it
+		if os.path.exists(zpath):
+			if zipfile.is_zipfile(zpath):
+				with zipfile.ZipFile(zpath) as zfile:
+					gpath = os.path.join(self.__cache, genus) # Create a subfolder in the cache directory using the genus name
+					zfile.extractall(gpath) # Extract the zip file into the new subfolder
+			else:
+				errmsg = "The downloaded Darwin Core Archive export was not a valid zip file."
+				gpath = None
+				keep_zip = False
+
+			if not keep_zip:
+				os.remove(zpath)
 
 		return (gpath, errmsg)
 

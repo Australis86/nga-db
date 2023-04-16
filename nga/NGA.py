@@ -323,30 +323,30 @@ class NGA:
 			print(f'Error retrieving NGA search results for {search_term}.')
 			print(str(err))
 			return None
-		else:
-			# Parse the returned HTML
-			soup = BeautifulSoup(req.text, "lxml")
-			caption = soup.find('caption',string="Search Results")
 
-			# If there are search results, then the caption will exist
-			if caption is not None:
-				table = caption.parent
-				rows = table.findAll('tr')
+		# Parse the returned HTML
+		soup = BeautifulSoup(req.text, "lxml")
+		caption = soup.find('caption',string="Search Results")
 
-				botanic_entries = {}
+		# If there are search results, then the caption will exist
+		if caption is not None:
+			table = caption.parent
+			rows = table.findAll('tr')
 
-				# Process all the rows and extract the botanic and cultivar names
-				for row in rows:
-					(botanic_name, cultivar_name, plant_data) = _parseTableRow(row)
-					if botanic_name not in botanic_entries:
-						botanic_entries[botanic_name] = {cultivar_name: plant_data}
-					else:
-						botanic_entries[botanic_name][cultivar_name] = plant_data
+			botanic_entries = {}
 
-				return botanic_entries
+			# Process all the rows and extract the botanic and cultivar names
+			for row in rows:
+				(botanic_name, cultivar_name, plant_data) = _parseTableRow(row)
+				if botanic_name not in botanic_entries:
+					botanic_entries[botanic_name] = {cultivar_name: plant_data}
+				else:
+					botanic_entries[botanic_name][cultivar_name] = plant_data
 
-			# No search results
-			return None
+			return botanic_entries
+
+		# No search results
+		return None
 
 
 	def checkPageFields(self, plant):
@@ -360,56 +360,56 @@ class NGA:
 			print(f'Error retrieving NGA plant entry for {plant["full_name"]}.')
 			print(str(err))
 			return None
-		else:
-			# Storage for relevant fields
-			fields = {
-				'cards': [],
-				'databoxes': [],
-				'common_names': [],
-				'botanical_names': [],
-			}
 
-			# Parse the returned HTML
-			soup = BeautifulSoup(req.text, "lxml")
+		# Storage for relevant fields
+		fields = {
+			'cards': [],
+			'databoxes': [],
+			'common_names': [],
+			'botanical_names': [],
+		}
 
-			# Look for class "card-header", as this is used for the common names, botanical names, conservation status, images and comments
-			cards = soup.findAll('div', {'class':'card-header'})
-			if len(cards) > 0:
-				for card in cards:
-					contents = card.get_text().strip().strip(':')
-					# Exclude the photo gallery, plant combinations, comments and discussion threads, as these are preserved during a merge
-					if contents not in ('Botanical names','Common names','Photo Gallery','This plant is tagged in','Comments','Discussion Threads about this plant'):
-						fields['cards'].append(contents)
+		# Parse the returned HTML
+		soup = BeautifulSoup(req.text, "lxml")
 
-					# Common names are not automatically transferred, but are one we can automate
-					if contents == 'Common names':
-						container = card.parent
-						cnames = container.findAll('li',{'class':'list-group-item'})
-						for cname in cnames:
-							common_name = list(cname.stripped_strings)[-1]
-							fields['common_names'].append(titlecase(common_name))
+		# Look for class "card-header", as this is used for the common names, botanical names, conservation status, images and comments
+		cards = soup.findAll('div', {'class':'card-header'})
+		if len(cards) > 0:
+			for card in cards:
+				contents = card.get_text().strip().strip(':')
+				# Exclude the photo gallery, plant combinations, comments and discussion threads, as these are preserved during a merge
+				if contents not in ('Botanical names','Common names','Photo Gallery','This plant is tagged in','Comments','Discussion Threads about this plant'):
+					fields['cards'].append(contents)
 
-					if contents == 'Botanical names':
-						container = card.parent
-						bnames = container.findAll('li',{'class':'list-group-item'})
-						for bname in bnames:
-							botanical_name = list(bname.stripped_strings)
-							if 'synonym' in botanical_name[0].lower():
-								fields['botanical_names'].append(botanical_name[-1])
+				# Common names are not automatically transferred, but are one we can automate
+				if contents == 'Common names':
+					container = card.parent
+					cnames = container.findAll('li',{'class':'list-group-item'})
+					for cname in cnames:
+						common_name = list(cname.stripped_strings)[-1]
+						fields['common_names'].append(titlecase(common_name))
 
-			# Look for the caption element, as this indicates data tables
-			captions = soup.findAll('caption')
-			if len(captions) > 0:
-				for caption in captions:
-					contents = caption.get_text().strip().split(' (')[0]
-					# Exclude plant events, as these are preserved during a merge
-					if contents not in 'Plant Events from our members':
-						fields['databoxes'].append(contents)
+				if contents == 'Botanical names':
+					container = card.parent
+					bnames = container.findAll('li',{'class':'list-group-item'})
+					for bname in bnames:
+						botanical_name = list(bname.stripped_strings)
+						if 'synonym' in botanical_name[0].lower():
+							fields['botanical_names'].append(botanical_name[-1])
 
-			#if len(fields['cards']) > 0 or len(fields['databoxes']) > 0:
-			#	print(fields)
+		# Look for the caption element, as this indicates data tables
+		captions = soup.findAll('caption')
+		if len(captions) > 0:
+			for caption in captions:
+				contents = caption.get_text().strip().split(' (')[0]
+				# Exclude plant events, as these are preserved during a merge
+				if contents not in 'Plant Events from our members':
+					fields['databoxes'].append(contents)
 
-			return fields
+		#if len(fields['cards']) > 0 or len(fields['databoxes']) > 0:
+		#	print(fields)
+
+		return fields
 
 
 	def checkParentageField(self, plant, recursed=False):
@@ -427,14 +427,12 @@ class NGA:
 			print(f'Error retrieving NGA plant entry for {plant["full_name"]}.')
 			print(str(err))
 			return None
-		else:
-			# Parse the returned HTML
-			soup = BeautifulSoup(req.text, "lxml")
-			parentage = soup.find('b', string=re.compile('Parentage'))
 
-			return parentage is not None
+		# Parse the returned HTML
+		soup = BeautifulSoup(req.text, "lxml")
+		parentage = soup.find('b', string=re.compile('Parentage'))
 
-		return None
+		return parentage is not None
 
 
 	def _submitProposal(self, url, data, auto_approve=True):
@@ -450,42 +448,42 @@ class NGA:
 		except requests.exceptions.RequestException as err:
 			print("Failed to submit proposal", str(err))
 			return None
-		else:
-			# Parse the returned HTML
-			soup = BeautifulSoup(req.text, "lxml")
-			confirmation = soup.findAll('a', attrs={'href': re.compile("approve")})
-			alert = soup.findAll('div', attrs={'class': 'alert-danger'})
 
-			if confirmation is not None and len(confirmation) > 0:
-				if auto_approve:
-					subpage = confirmation[0]['href']
-					suburl = urljoin(self._home_url, subpage)
+		# Parse the returned HTML
+		soup = BeautifulSoup(req.text, "lxml")
+		confirmation = soup.findAll('a', attrs={'href': re.compile("approve")})
+		alert = soup.findAll('div', attrs={'class': 'alert-danger'})
 
-					try:
-						req = self._session.get(suburl)
-					except requests.exceptions.RequestException as err:
-						print("Failed to approve proposal", str(err))
-						print(str(err))
-						return False
-					else:
-						soup = BeautifulSoup(req.text, "lxml")
-						approved1 = soup.findAll('div', {'class':'alert-success'}) # Used for approvals via queue
-						approved2 = soup.findAll('a', attrs={'href': re.compile("/plants/view/")}) # Only used for direct path of new plant proposals
+		if confirmation is not None and len(confirmation) > 0:
+			if auto_approve:
+				subpage = confirmation[0]['href']
+				suburl = urljoin(self._home_url, subpage)
 
-						if (approved1 and len(approved1) > 0) or (approved2 and len(approved2) > 0):
-							print("\tProposal approved.")
-							return True
-
-						print("\tProposal not approved.")
-						return False
-				else:
-					print("\tProposal submitted.")
+				try:
+					req = self._session.get(suburl)
+				except requests.exceptions.RequestException as err:
+					print("Failed to approve proposal", str(err))
+					print(str(err))
 					return False
 
-			elif alert is not None and len(alert) > 0:
-				print("\tFailed to submit proposal - name already in use.")
-			else:
-				print("\tFailed to submit proposal.")
+				soup = BeautifulSoup(req.text, "lxml")
+				approved1 = soup.findAll('div', {'class':'alert-success'}) # Used for approvals via queue
+				approved2 = soup.findAll('a', attrs={'href': re.compile("/plants/view/")}) # Only used for direct path of new plant proposals
+
+				if (approved1 and len(approved1) > 0) or (approved2 and len(approved2) > 0):
+					print("\tProposal approved.")
+					return True
+
+				print("\tProposal not approved.")
+				return False
+
+			print("\tProposal submitted.")
+			return False
+
+		if alert is not None and len(alert) > 0:
+			print("\tFailed to submit proposal - name already in use.")
+		else:
+			print("\tFailed to submit proposal.")
 
 		return None
 
@@ -505,32 +503,32 @@ class NGA:
 		except requests.exceptions.RequestException as err:
 			print(str(err))
 			return None
-		else:
-			soup = BeautifulSoup(req.text, "lxml")
-			#ptable = soup.find("table", {"id":"table"})
-			proposals = soup.findAll('tr')
-			pending = {}
 
-			for proposal in proposals:
-				if proposal.find("th") is not None:
-					continue
+		soup = BeautifulSoup(req.text, "lxml")
+		#ptable = soup.find("table", {"id":"table"})
+		proposals = soup.findAll('tr')
+		pending = {}
 
-				cells = proposal.findAll("td")
-				pid = int(cells[0].get_text().strip())
-				genus = cells[1].get_text().strip()
-				species = cells[2].get_text().strip()
-				cultivar = cells[3].get_text().strip()
-				tradename = cells[4].get_text().strip()
-				series = cells[5].get_text().strip()
+		for proposal in proposals:
+			if proposal.find("th") is not None:
+				continue
 
-				if len(cultivar) == len(tradename) == len(series) == 0:
-					botanical_name = f'{genus} {species}'
-					if botanical_name not in pending:
-						pending[botanical_name] = []
+			cells = proposal.findAll("td")
+			pid = int(cells[0].get_text().strip())
+			genus = cells[1].get_text().strip()
+			species = cells[2].get_text().strip()
+			cultivar = cells[3].get_text().strip()
+			tradename = cells[4].get_text().strip()
+			series = cells[5].get_text().strip()
 
-					pending[botanical_name].append(pid)
+			if len(cultivar) == len(tradename) == len(series) == 0:
+				botanical_name = f'{genus} {species}'
+				if botanical_name not in pending:
+					pending[botanical_name] = []
 
-			return pending
+				pending[botanical_name].append(pid)
+
+		return pending
 
 
 	def approveNewProposal(self, pid):
@@ -607,129 +605,129 @@ class NGA:
 			print(f'Error retrieving NGA database name page for {plant["full_name"]}.')
 			print(str(err))
 			return None
-		else:
-			# Parse the returned HTML
-			soup = BeautifulSoup(req.text, "lxml")
-			form = soup.find('form', attrs={'method': 'post'})
-			data = OrderedDict() # This is crucial. New fields are processed server-side in the order that they are added.
 
-			# Latin names
-			latin_table = form.find('table', attrs={'id': 'latin-table'})
-			lnames = latin_table.findAll(['input','select'])
+		# Parse the returned HTML
+		soup = BeautifulSoup(req.text, "lxml")
+		form = soup.find('form', attrs={'method': 'post'})
+		data = OrderedDict() # This is crucial. New fields are processed server-side in the order that they are added.
 
-			lparams = OrderedDict() # Must be ordered!
+		# Latin names
+		latin_table = form.find('table', attrs={'id': 'latin-table'})
+		lnames = latin_table.findAll(['input','select'])
 
-			# Iterate through all the botanical names and make sure existing entries are preserved
-			for i in lnames:
-				# Extract the id number for this latin name
-				name = i['name']
-				name_id = re.sub('[^0-9]','',name)
-				if name_id not in lparams:
-					lparams[name_id] = {}
+		lparams = OrderedDict() # Must be ordered!
 
-				# Get the latin name
-				if 'status' not in name:
-					lparams[name_id]['latin'] = i['value']
+		# Iterate through all the botanical names and make sure existing entries are preserved
+		for i in lnames:
+			# Extract the id number for this latin name
+			name = i['name']
+			name_id = re.sub('[^0-9]','',name)
+			if name_id not in lparams:
+				lparams[name_id] = {}
 
-					# Check if the synonym is already present
-					# TO DO: Check for misspellings in future
-					latin_name = i['value'].strip()
-					if latin_name in synonyms:
-						synonyms.remove(latin_name)
+			# Get the latin name
+			if 'status' not in name:
+				lparams[name_id]['latin'] = i['value']
 
-				# Get the current status of the name
-				else:
-					selector = i.findAll('option', selected=True)
-					svalue = selector[0]['value']
-					lparams[name_id]['latin_status'] = svalue
+				# Check if the synonym is already present
+				# TO DO: Check for misspellings in future
+				latin_name = i['value'].strip()
+				if latin_name in synonyms:
+					synonyms.remove(latin_name)
 
-			syn_count = len(synonyms)
-			if syn_count < 1:
-				# Don't need to continue as the synonym is already there
-				return True
-
-			# Add the new name as a synonym
-			lparams['new'] = {'latin':synonyms, 'latin_status':['synonym']*syn_count}
-
-			# Add the latin names to the object
-			for param in lparams:
-				if param == 'new':
-					data['latin[]'] = lparams[param]['latin']
-					data['latin_status[]'] = lparams[param]['latin_status']
-				else:
-					data[f'latin[{param}]'] = lparams[param]['latin']
-					data[f'latin_status[{param}]'] = lparams[param]['latin_status']
-
-			# Common names
-			common_table = form.find('table', attrs={'id': 'common-table'})
-			cnames = common_table.findAll('input')
-
-			cname_exclude = None
-			if 'common_exclude' in plant:
-				cname_exclude = plant['common_exclude'].strip().lower()
-
-			if len(cnames) < 1:
-				# If there are no common names and one has been provided, add it
-				if common_names is not None and len(common_names) > 0:
-					data['common[]'] = common_names
+			# Get the current status of the name
 			else:
-				# Prepare data for common name validation
-				synonym_genera = None
-				if common_names is not None and len(common_names) > 0:
-					common_lower = {name.lower():name for name in common_names}
-				else:
-					common_lower = {}
+				selector = i.findAll('option', selected=True)
+				svalue = selector[0]['value']
+				lparams[name_id]['latin_status'] = svalue
 
-				synonym_genera = [synonym.split(' ')[0].strip().lower() for synonym in synonyms]
+		syn_count = len(synonyms)
+		if syn_count < 1:
+			# Don't need to continue as the synonym is already there
+			return True
 
-				# Cycle through the existing common names and ensure they are included
-				# (unless they are the genus)
-				for cname in cnames:
-					common_tidied = cname['value'].strip().lower()
+		# Add the new name as a synonym
+		lparams['new'] = {'latin':synonyms, 'latin_status':['synonym']*syn_count}
 
-					# Check if the common name is already present
-					if common_tidied in common_lower:
-						common_names.remove(common_lower[common_tidied])
+		# Add the latin names to the object
+		for param in lparams:
+			if param == 'new':
+				data['latin[]'] = lparams[param]['latin']
+				data['latin_status[]'] = lparams[param]['latin_status']
+			else:
+				data[f'latin[{param}]'] = lparams[param]['latin']
+				data[f'latin_status[{param}]'] = lparams[param]['latin_status']
 
-					# If the common name isn't the genus, copy it
-					if common_tidied not in synonym_genera + [cname_exclude]:
-						data[cname['name']] = cname['value']
+		# Common names
+		common_table = form.find('table', attrs={'id': 'common-table'})
+		cnames = common_table.findAll('input')
 
-				# If the provided common name wasn't listed, add it
-				if common_names is not None and len(common_names) > 0:
-					data['common[]'] = common_names
+		cname_exclude = None
+		if 'common_exclude' in plant:
+			cname_exclude = plant['common_exclude'].strip().lower()
 
-			# Tradename and series
-			trade_table = form.find('table', attrs={'id': 'tradename-table'})
-			trade_data = trade_table.findAll('input')
+		if len(cnames) < 1:
+			# If there are no common names and one has been provided, add it
+			if common_names is not None and len(common_names) > 0:
+				data['common[]'] = common_names
+		else:
+			# Prepare data for common name validation
+			synonym_genera = None
+			if common_names is not None and len(common_names) > 0:
+				common_lower = {name.lower():name for name in common_names}
+			else:
+				common_lower = {}
 
-			# Copy any existing trade name data
-			for trade_entry in trade_data:
-				if trade_entry['name'] in 'tradename' and len(trade_entry['value'].strip()) < 1 and 'remove_quotes' in plant and plant['remove_quotes']:
-					data[trade_entry['name']] = plant['cleaned_name']
-				else:
-					data[trade_entry['name']] = trade_entry['value']
+			synonym_genera = [synonym.split(' ')[0].strip().lower() for synonym in synonyms]
 
-			# Cultivars
-			cultivar_table = form.find('table', attrs={'id': 'cultivar-table'})
-			cultivars = cultivar_table.findAll('input')
+			# Cycle through the existing common names and ensure they are included
+			# (unless they are the genus)
+			for cname in cnames:
+				common_tidied = cname['value'].strip().lower()
 
-			# Copy any existing cultivars
-			for cultivar in cultivars:
-				data[cultivar['name']] = cultivar['value']
+				# Check if the common name is already present
+				if common_tidied in common_lower:
+					common_names.remove(common_lower[common_tidied])
 
-			# Also sold as
-			asa_table = form.find('table', attrs={'id': 'asa-table'})
-			aliases = asa_table.findAll('asa')
+				# If the common name isn't the genus, copy it
+				if common_tidied not in synonym_genera + [cname_exclude]:
+					data[cname['name']] = cname['value']
 
-			# Copy any existing aliases
-			for alias in aliases:
-				data[alias['name']] = alias['value']
+			# If the provided common name wasn't listed, add it
+			if common_names is not None and len(common_names) > 0:
+				data['common[]'] = common_names
 
-			data['submit'] = 'Submit your proposed changes'
+		# Tradename and series
+		trade_table = form.find('table', attrs={'id': 'tradename-table'})
+		trade_data = trade_table.findAll('input')
 
-			# POST the data
-			return self._submitProposal(url, data, auto_approve)
+		# Copy any existing trade name data
+		for trade_entry in trade_data:
+			if trade_entry['name'] in 'tradename' and len(trade_entry['value'].strip()) < 1 and 'remove_quotes' in plant and plant['remove_quotes']:
+				data[trade_entry['name']] = plant['cleaned_name']
+			else:
+				data[trade_entry['name']] = trade_entry['value']
+
+		# Cultivars
+		cultivar_table = form.find('table', attrs={'id': 'cultivar-table'})
+		cultivars = cultivar_table.findAll('input')
+
+		# Copy any existing cultivars
+		for cultivar in cultivars:
+			data[cultivar['name']] = cultivar['value']
+
+		# Also sold as
+		asa_table = form.find('table', attrs={'id': 'asa-table'})
+		aliases = asa_table.findAll('asa')
+
+		# Copy any existing aliases
+		for alias in aliases:
+			data[alias['name']] = alias['value']
+
+		data['submit'] = 'Submit your proposed changes'
+
+		# POST the data
+		return self._submitProposal(url, data, auto_approve)
 
 
 	# TO DO: Update this to accept multiple common names
@@ -758,147 +756,147 @@ class NGA:
 			print(f'Error retrieving NGA database name page for {plant["full_name"]}.')
 			print(str(err))
 			return None
-		else:
-			# Parse the returned HTML
-			soup = BeautifulSoup(req.text, "lxml")
-			form = soup.find('form', attrs={'method': 'post'})
-			data = OrderedDict() # This is crucial. New fields are processed server-side in the order that they are added.
 
-			# Latin names
-			latin_table = form.find('table', attrs={'id': 'latin-table'})
-			lnames = latin_table.findAll(['input','select'])
+		# Parse the returned HTML
+		soup = BeautifulSoup(req.text, "lxml")
+		form = soup.find('form', attrs={'method': 'post'})
+		data = OrderedDict() # This is crucial. New fields are processed server-side in the order that they are added.
 
-			lparams = OrderedDict() # Must be ordered!
-			accepted = None
-			accepted_name = None
+		# Latin names
+		latin_table = form.find('table', attrs={'id': 'latin-table'})
+		lnames = latin_table.findAll(['input','select'])
 
-			for i in lnames:
-				# Extract the id number for this latin name
-				name = i['name']
-				name_id = re.sub('[^0-9]','',name)
-				if name_id not in lparams:
-					lparams[name_id] = {}
+		lparams = OrderedDict() # Must be ordered!
+		accepted = None
+		accepted_name = None
 
-				# Get the latin name
-				if 'status' not in name:
-					lparams[name_id]['latin'] = i['value']
+		for i in lnames:
+			# Extract the id number for this latin name
+			name = i['name']
+			name_id = re.sub('[^0-9]','',name)
+			if name_id not in lparams:
+				lparams[name_id] = {}
 
-				# Get the current status of the name
-				else:
-					selector = i.findAll('option', selected=True)
-					svalue = selector[0]['value']
-					lparams[name_id]['latin_status'] = svalue
+			# Get the latin name
+			if 'status' not in name:
+				lparams[name_id]['latin'] = i['value']
 
-					if 'accepted' in svalue.lower():
-						accepted = name_id
-						accepted_name = lparams[name_id]['latin']
-
-			# Either replace the name (fix spelling) or add the new name as the accepted one
-			if accepted is not None:
-
-				# There is a new name for the plant
-				if 'new_bot_name' in plant:
-
-					# The name is misspelt or needs to be replaced
-					if 'rename' in plant:
-						lparams[accepted]['latin'] = plant['new_bot_name']
-
-					# The existing name is now a synonym
-					else:
-						lparams[accepted]['latin_status'] = 'synonym'
-						found = False
-
-						# Check that the newly accepted name isn't a synonym already
-						for param in lparams:
-							lentry = lparams[param]
-							if lentry['latin'] == plant['new_bot_name']:
-								lentry['latin_status'] = 'accepted'
-								found = True
-								break
-
-						if not found:
-							lparams['new'] = {'latin':plant['new_bot_name'], 'latin_status':'accepted'}
-
-			# Add the latin names to the object
-			for param in lparams:
-				if param == 'new':
-					data['latin[]'] = lparams[param]['latin']
-					data['latin_status[]'] = lparams[param]['latin_status']
-				else:
-					data[f'latin[{param}]'] = lparams[param]['latin']
-					data[f'latin_status[{param}]'] = lparams[param]['latin_status']
-
-			# Common names
-			common_table = form.find('table', attrs={'id': 'common-table'})
-			cnames = common_table.findAll('input')
-
-			cname_exclude = None
-			if 'common_exclude' in plant:
-				cname_exclude = plant['common_exclude'].strip().lower()
-
-			if len(cnames) < 1:
-				# If there are no common names and one has been provided, add it
-				if common_names is not None and len(common_names) > 0:
-					data['common[]'] = common_names
+			# Get the current status of the name
 			else:
-				# Prepare data for common name validation
-				accepted_genus = None
-				if common_names is not None and len(common_names) > 0:
-					common_lower = {name.lower():name for name in common_names}
+				selector = i.findAll('option', selected=True)
+				svalue = selector[0]['value']
+				lparams[name_id]['latin_status'] = svalue
+
+				if 'accepted' in svalue.lower():
+					accepted = name_id
+					accepted_name = lparams[name_id]['latin']
+
+		# Either replace the name (fix spelling) or add the new name as the accepted one
+		if accepted is not None:
+
+			# There is a new name for the plant
+			if 'new_bot_name' in plant:
+
+				# The name is misspelt or needs to be replaced
+				if 'rename' in plant:
+					lparams[accepted]['latin'] = plant['new_bot_name']
+
+				# The existing name is now a synonym
 				else:
-					common_lower = {}
+					lparams[accepted]['latin_status'] = 'synonym'
+					found = False
 
-				if accepted_name is not None:
-					accepted_genus = accepted_name.split(' ')[0].strip().lower()
+					# Check that the newly accepted name isn't a synonym already
+					for param in lparams:
+						lentry = lparams[param]
+						if lentry['latin'] == plant['new_bot_name']:
+							lentry['latin_status'] = 'accepted'
+							found = True
+							break
 
-				# Cycle through the existing common names and ensure they are included
-				# (unless they are the genus)
-				for cname in cnames:
-					common_tidied = cname['value'].strip().lower()
+					if not found:
+						lparams['new'] = {'latin':plant['new_bot_name'], 'latin_status':'accepted'}
 
-					# Check if the common name is already present
-					if common_tidied in common_lower:
-						common_names.remove(common_lower[common_tidied])
+		# Add the latin names to the object
+		for param in lparams:
+			if param == 'new':
+				data['latin[]'] = lparams[param]['latin']
+				data['latin_status[]'] = lparams[param]['latin_status']
+			else:
+				data[f'latin[{param}]'] = lparams[param]['latin']
+				data[f'latin_status[{param}]'] = lparams[param]['latin_status']
 
-					# If the common name isn't the genus, copy it
-					if common_tidied not in (accepted_genus, cname_exclude):
-						data[cname['name']] = cname['value']
+		# Common names
+		common_table = form.find('table', attrs={'id': 'common-table'})
+		cnames = common_table.findAll('input')
 
-				# If the provided common name wasn't listed, add it
-				if common_names is not None and len(common_names) > 0:
-					data['common[]'] = common_names
+		cname_exclude = None
+		if 'common_exclude' in plant:
+			cname_exclude = plant['common_exclude'].strip().lower()
 
-			# Tradename and series
-			trade_table = form.find('table', attrs={'id': 'tradename-table'})
-			trade_data = trade_table.findAll('input')
+		if len(cnames) < 1:
+			# If there are no common names and one has been provided, add it
+			if common_names is not None and len(common_names) > 0:
+				data['common[]'] = common_names
+		else:
+			# Prepare data for common name validation
+			accepted_genus = None
+			if common_names is not None and len(common_names) > 0:
+				common_lower = {name.lower():name for name in common_names}
+			else:
+				common_lower = {}
 
-			# Copy any existing trade name data
-			for trade_entry in trade_data:
-				if trade_entry['name'] in 'tradename' and len(trade_entry['value'].strip()) < 1 and 'remove_quotes' in plant and plant['remove_quotes']:
-					data[trade_entry['name']] = plant['cleaned_name']
-				else:
-					data[trade_entry['name']] = trade_entry['value']
+			if accepted_name is not None:
+				accepted_genus = accepted_name.split(' ')[0].strip().lower()
 
-			# Cultivars
-			cultivar_table = form.find('table', attrs={'id': 'cultivar-table'})
-			cultivars = cultivar_table.findAll('input')
+			# Cycle through the existing common names and ensure they are included
+			# (unless they are the genus)
+			for cname in cnames:
+				common_tidied = cname['value'].strip().lower()
 
-			# Copy any existing cultivars
-			for cultivar in cultivars:
-				data[cultivar['name']] = cultivar['value']
+				# Check if the common name is already present
+				if common_tidied in common_lower:
+					common_names.remove(common_lower[common_tidied])
 
-			# Also sold as
-			asa_table = form.find('table', attrs={'id': 'asa-table'})
-			aliases = asa_table.findAll('asa')
+				# If the common name isn't the genus, copy it
+				if common_tidied not in (accepted_genus, cname_exclude):
+					data[cname['name']] = cname['value']
 
-			# Copy any existing aliases
-			for alias in aliases:
-				data[alias['name']] = alias['value']
+			# If the provided common name wasn't listed, add it
+			if common_names is not None and len(common_names) > 0:
+				data['common[]'] = common_names
 
-			data['submit'] = 'Submit your proposed changes'
+		# Tradename and series
+		trade_table = form.find('table', attrs={'id': 'tradename-table'})
+		trade_data = trade_table.findAll('input')
 
-			# POST the data
-			return self._submitProposal(url, data, auto_approve)
+		# Copy any existing trade name data
+		for trade_entry in trade_data:
+			if trade_entry['name'] in 'tradename' and len(trade_entry['value'].strip()) < 1 and 'remove_quotes' in plant and plant['remove_quotes']:
+				data[trade_entry['name']] = plant['cleaned_name']
+			else:
+				data[trade_entry['name']] = trade_entry['value']
+
+		# Cultivars
+		cultivar_table = form.find('table', attrs={'id': 'cultivar-table'})
+		cultivars = cultivar_table.findAll('input')
+
+		# Copy any existing cultivars
+		for cultivar in cultivars:
+			data[cultivar['name']] = cultivar['value']
+
+		# Also sold as
+		asa_table = form.find('table', attrs={'id': 'asa-table'})
+		aliases = asa_table.findAll('asa')
+
+		# Copy any existing aliases
+		for alias in aliases:
+			data[alias['name']] = alias['value']
+
+		data['submit'] = 'Submit your proposed changes'
+
+		# POST the data
+		return self._submitProposal(url, data, auto_approve)
 
 
 	def proposeDataUpdate(self, plant):
@@ -919,51 +917,51 @@ class NGA:
 				print(f'Error retrieving NGA database databox page for {plant["full_name"]}.')
 				print(str(err))
 				return None
-			else:
-				# Parse the returned HTML
-				soup = BeautifulSoup(req.text, "lxml")
-				form = soup.find('form', attrs={'method': 'post'})
-				data = OrderedDict() # This is crucial. New fields are processed server-side in the order that they are added.
 
-				# Ensure all the existing values are kept
-				table = form.find('table')
-				fields = table.findAll(['input','select'])
-				for field in fields:
-					data[field['name']] = '' # Default is blank
+			# Parse the returned HTML
+			soup = BeautifulSoup(req.text, "lxml")
+			form = soup.find('form', attrs={'method': 'post'})
+			data = OrderedDict() # This is crucial. New fields are processed server-side in the order that they are added.
 
-					# Handle checkboxes
-					if 'type' in field.attrs:
-						if field['type'] == 'checkbox' and 'checked' in field.attrs:
-							data[field['name']] = 'on'
-						elif 'value' in field.attrs:
-							data[field['name']] = field['value']
+			# Ensure all the existing values are kept
+			table = form.find('table')
+			fields = table.findAll(['input','select'])
+			for field in fields:
+				data[field['name']] = '' # Default is blank
 
-					# Handle dropdown options
-					elif field.name == 'select':
-						for option in field.children:
-							if 'selected' in option.attrs:
-								data[field['name']] = option['value']
+				# Handle checkboxes
+				if 'type' in field.attrs:
+					if field['type'] == 'checkbox' and 'checked' in field.attrs:
+						data[field['name']] = 'on'
+					elif 'value' in field.attrs:
+						data[field['name']] = field['value']
 
-				# Locate the parentage field
-				parentage_cell = table.find(string=re.compile('Parentage')) # Due to the fact that this is next to a span, BS4 considers this a text node, so searching for the parent doesn't work in this case
-				if parentage_cell is not None:
-					parentage_field = parentage_cell.parents
+				# Handle dropdown options
+				elif field.name == 'select':
+					for option in field.children:
+						if 'selected' in option.attrs:
+							data[field['name']] = option['value']
 
-					# Walk up through the parents until we hit the TR tag
-					for parent in parentage_field:
-						if parent.name == 'tr':
-							# Locate the input element
-							input_field = parent.find('input')
-							if input_field is not None:
-								# Update the parentage field
-								data[(input_field['name'])] = plant['parentage']['formula']
-								break
+			# Locate the parentage field
+			parentage_cell = table.find(string=re.compile('Parentage')) # Due to the fact that this is next to a span, BS4 considers this a text node, so searching for the parent doesn't work in this case
+			if parentage_cell is not None:
+				parentage_field = parentage_cell.parents
 
-				# Normally the page only offers a preview option first, but this value should skip that step
-				data['submit'] = 'Save and submit the proposal'
+				# Walk up through the parents until we hit the TR tag
+				for parent in parentage_field:
+					if parent.name == 'tr':
+						# Locate the input element
+						input_field = parent.find('input')
+						if input_field is not None:
+							# Update the parentage field
+							data[(input_field['name'])] = plant['parentage']['formula']
+							break
 
-				# POST the data and automatically approve the proposal
-				return self._submitProposal(url, data)
+			# Normally the page only offers a preview option first, but this value should skip that step
+			data['submit'] = 'Save and submit the proposal'
+
+			# POST the data and automatically approve the proposal
+			return self._submitProposal(url, data)
 
 		return None
 

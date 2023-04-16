@@ -138,37 +138,37 @@ class WCSP:
 			req = self._session.post(self._search_url, data=data)
 		except requests.exceptions.RequestException:
 			return result
-		else:
-			# Parse the response HTML here and check for an accepted name
-			soup = BeautifulSoup(req.text, "lxml")
-			status = findBotanicalName(genus, soup, result)
-			if status is not None:
-				return status
 
-			# Check for multiple search results
-			links = soup.findAll('a', {'class':'onwardnav'})
-			for link in links:
-				italics = link.findAll('i')
-				if italics is not None:
-					(name, hybrid) = parseItalics(italics, link)
+		# Parse the response HTML here and check for an accepted name
+		soup = BeautifulSoup(req.text, "lxml")
+		status = findBotanicalName(genus, soup, result)
+		if status is not None:
+			return status
 
-					# Select the entry that matches our search term
-					if name == synonym:
-						result['hybrid'] = hybrid
-						href = link['href']
-						url = urljoin(self._search_url, href)
+		# Check for multiple search results
+		links = soup.findAll('a', {'class':'onwardnav'})
+		for link in links:
+			italics = link.findAll('i')
+			if italics is not None:
+				(name, hybrid) = parseItalics(italics, link)
 
-						try:
-							req = self._session.get(url)
-						except requests.exceptions.RequestException as err:
-							print(str(err))
-							return result
-						else:
-							# Parse the response HTML here and check for an accepted name
-							soup = BeautifulSoup(req.text, "lxml")
-							status = findBotanicalName(genus, soup, result)
-							if status is not None:
-								return status
+				# Select the entry that matches our search term
+				if name == synonym:
+					result['hybrid'] = hybrid
+					href = link['href']
+					url = urljoin(self._search_url, href)
+
+					try:
+						req = self._session.get(url)
+					except requests.exceptions.RequestException as err:
+						print(str(err))
+						return result
+
+					# Parse the response HTML here and check for an accepted name
+					soup = BeautifulSoup(req.text, "lxml")
+					status = findBotanicalName(genus, soup, result)
+					if status is not None:
+						return status
 
 		return result
 
