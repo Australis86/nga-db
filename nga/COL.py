@@ -6,7 +6,6 @@ This script is designed for Python 3 and Beautiful Soup 4 with the lxml parser."
 
 # Module imports
 import os
-import sys
 import csv
 import json
 import getpass
