@@ -378,7 +378,8 @@ class NGA:
 			for card in cards:
 				contents = card.get_text().strip().strip(':')
 				# Exclude the photo gallery, plant combinations, comments and discussion threads, as these are preserved during a merge
-				if contents not in ('Botanical names','Common names','Photo Gallery','This plant is tagged in','Comments','Discussion Threads about this plant'):
+				# Also ignore conservation status as this would need to be rechecked
+				if contents not in ('Botanical names','Common names','Photo Gallery','This plant is tagged in','Comments','Discussion Threads about this plant','Conservation status'):
 					fields['cards'].append(contents)
 
 				# Common names are not automatically transferred, but are one we can automate
@@ -404,7 +405,12 @@ class NGA:
 				contents = caption.get_text().strip().split(' (')[0]
 				# Exclude plant events, as these are preserved during a merge
 				if contents not in 'Plant Events from our members':
-					fields['databoxes'].append(contents)
+					# Check if the only field is Conservation Status
+					cparent = caption.parent
+					rows = cparent.find_all('tr')
+					rcount = len(rows)
+					if rcount > 1 or 'Conservation' not in cparent.get_text():
+						fields['databoxes'].append(contents)
 
 		#if len(fields['cards']) > 0 or len(fields['databoxes']) > 0:
 		#	print(fields)
