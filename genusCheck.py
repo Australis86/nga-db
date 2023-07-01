@@ -68,8 +68,8 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 
 	msg = None
 
-	# Use the proper hybrid symbol for searching the COL; at this time there is a glitch that means it is followed by a double space, rather than a single space
-	col_search_term = search_term.replace(' x ',' ×  ')
+	# Use the proper hybrid symbol for searching the COL
+	col_search_term = search_term.replace(' x ',' × ')
 	results = col_obj.search(col_search_term)
 	if len(results) > 1:
 		print(' ',col_search_term,'-',results[1])
@@ -87,15 +87,16 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 
 		# If this name is not in working_genus and not in current_names, search the NGA
 		if retgenus != working_genus:
-			nga_matches = nga_obj.search(retname)
+			nga_formatted_name = retname.replace(' × ',' x ') # Note that the NGA doesn't use the multiplier symbol, only an x
+			nga_matches = nga_obj.search(nga_formatted_name)
 			if nga_matches is not None:
 				duplicate = True
 				# If there is an exact match in the database, make sure it is part of the working dataset
-				if retname in nga_matches:
-					if retname not in nga_dataset:
-						nga_dataset[retname] = nga_matches[retname]
+				if nga_formatted_name in nga_matches:
+					if nga_formatted_name not in nga_dataset:
+						nga_dataset[nga_formatted_name] = nga_matches[nga_formatted_name]
 				else:
-					print(f' No exact match for {retname}')
+					print(f' No exact match for {nga_formatted_name}')
 					#print(nga_matches)
 
 		# Exclude results where the result matches the search term or the search term is only part of the result
