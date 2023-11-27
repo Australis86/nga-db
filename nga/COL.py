@@ -111,7 +111,7 @@ class COL(GBIF):
 		else:
 			closest = rdata['result'][0]
 
-		if fetch_synonyms:
+		if fetch_synonyms and closest is not None:
 			# Get the taxon ID so that we can get the synonyms
 			taxon_id = closest['id']
 			dataset_key = closest['usage']['datasetKey']
@@ -261,7 +261,7 @@ class DCA(GBIF):
 			return (None, 'No matches in the Plant kingdom found in COL search.')
 
 		# Prepare the export data
-		data = {"format":"DWCA", "root":{"id":taxon_id}, "synonyms": True}
+		data = {"format":"DWCA", "root":{"id":taxon_id}, "synonyms": True, "extended": True}
 
 		# Post to the asynchronous API (this requests a build of an export)
 		try:

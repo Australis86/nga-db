@@ -22,6 +22,9 @@ import requests
 from bs4 import BeautifulSoup
 from titlecase import titlecase
 
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 class NGA:
 	"""Create a user-friendly API for the NGA website's Plants Database."""
@@ -33,6 +36,9 @@ class NGA:
 
 		# Requests user agent has been blocked by Garden.org, unfortunately
 		self._session.headers.update({'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:97.0) Gecko/20100101 Firefox/97.0'})
+
+		# Frustratingly, we have to disable SSL verification due to a self-signed cert that doesn't match the hostname
+		self._session.verify = False
 
 
 	def __init__(self, nga_path=None):
