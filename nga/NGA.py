@@ -409,15 +409,30 @@ class NGA:
 		if len(captions) > 0:
 			for caption in captions:
 				contents = caption.get_text().strip().split(' (')[0]
+
 				# Exclude plant events, as these are preserved during a merge
 				if contents not in 'Plant Events from our members':
-					# Check if the only field is Conservation Status
 					cparent = caption.parent
-					rows = cparent.find_all('tr')
-					rcount = len(rows)
-					if rcount > 1 or 'Conservation' not in cparent.get_text():
-						fields['databoxes'].append(contents)
+					# Check if the only field is Conservation Status
+					if 'Conservation' not in cparent.get_text():
+						# Not the Conservation Status, so need to sanity-check the rest
+						rows = cparent.find_all('tr')
+						rcount = len(rows)
 
+						# Check the table rows to see if we can ignore the fields that are present
+						for row in rows:
+							cells = row.find_all('td')
+							rowlabel = cells[0].get_text().strip().replace(":","")
+							print(rowlabel)
+
+							# If we can ignore this row, subtract it from the row count
+							if rowlabel in ["Plant Habit"]:
+								rcount = rcount - 1
+
+						if rcount > 0:
+							fields['databoxes'].append(contents)
+
+		# Debug output to see which cards or data tables are present
 		#if len(fields['cards']) > 0 or len(fields['databoxes']) > 0:
 		#	print(fields)
 
