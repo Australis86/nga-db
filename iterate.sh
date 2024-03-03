@@ -9,23 +9,19 @@ logfile="$0.log"
 [ $# -eq 0 ] && { echo "Usage: $0 filename"; exit 1; }
 
 echo "---- AUTOMATED GENERA CHECK LOG FILE ----" > ${logfile}
-echo "Genera requiring changes:"
 while read line; do
 	results=`./genusCheck.py -v -o --parentage "$line" 2>&1`
 	ecode=$?
 
 	if [ $ecode -eq 65 ]; then 
-		echo "$line"
-		echo "$line -- CHANGES REQUIRED" >> $logfile
+		echo "REVISED:    $line" | tee -a ${logfile}
 		echo "$results" >> $logfile
 		echo -e "\n\n" >> $logfile
 	elif [ $ecode -eq 66 ]; then
-		echo "$line -- POSSIBLY DEPRECATED"
-		echo "$line -- POSSIBLY DEPRECATED" >> $logfile
+		echo "DEPRECATED: $line" | tee -a ${logfile}
 	elif [ $ecode -ne 0 ]; then
-		echo "$line -- UNKNOWN ERROR"
-		echo "$line -- UNKNOWN ERROR" >> $logfile
+		echo "ERROR:      $line" | tee -a ${logfile}
 	else
-		echo "$line" >> $logfile
+		echo "UNCHANGED:  $line" | tee -a ${logfile}
 	fi
 done < $1
