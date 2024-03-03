@@ -10,20 +10,20 @@ This script is designed for Python 3 and Beautiful Soup 4 with the lxml parser."
 
 # Module imports
 import os
-import sys
 import json
 import re
 import time
 import getpass
 from collections import OrderedDict
 from urllib.parse import urljoin, urlparse, parse_qs
-from sys import stdout
+from sys import exit, stdout
 import requests
 from bs4 import BeautifulSoup
 from titlecase import titlecase
 
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+from . import core
 
 
 class NGA:
@@ -182,7 +182,7 @@ class NGA:
 		self._session.get(self._home_url)
 
 
-	def _parseGenusPage(self, page_soup, genus=None):
+	def _parseGenusPage(self, page_soup, genus=None, verbosity=1):
 		"""Parse a BeautifulSoup object returned by the _fetchGenusPage function."""
 
 		# Get the table on the page
@@ -208,29 +208,23 @@ class NGA:
 						self._genus_results[botanic_name][cultivar_name] = plant_data
 
 
-	def _parseGenusPages(self, pages, genus=None):
+	def _parseGenusPages(self, pages, genus=None, verbosity=1):
 		"""Parse a list of the BeautifulSoup object returned by the _fetchGenusPage function."""
 
 		# Initialise the dataset
 		self._genus_results = {}
 
-		stdout.write("\rParsing NGA dataset...")
-		stdout.flush()
-
+		core.stdoutWF("\rParsing NGA dataset...", 1, verbosity)
 		total = len(pages)
 		count = 1
 
 		for page in pages:
-			stdout.write(f'\rParsing NGA dataset... {count:d}/{total:d}')
-			stdout.flush()
-
-			self._parseGenusPage(page, genus)
+			core.stdoutWF(f'\rParsing NGA dataset... {count:d}/{total:d}', 2, verbosity)
+			self._parseGenusPage(page, genus, verbosity)
 			count += 1
 
-
 		n_entries = len(list(self._genus_results))
-		stdout.write(f'\rParsing NGA dataset... done. {n_entries:d} botanic name(s) found.\r\n')
-		stdout.flush()
+		core.stdoutWF(f'\rParsing NGA dataset... done. {n_entries:d} botanic name(s) found.\r\n', 1, verbosity)
 
 		return self._genus_results
 
@@ -246,8 +240,8 @@ class NGA:
 		try:
 			req = self._session.get(self._genus_url % genus, params=params)
 		except requests.exceptions.RequestException:
-			print(f'\nError retrieving NGA database page for genus {genus}. Cannot continue.')
-			sys.exit(1)
+			core.stderrWF(f'\nError retrieving NGA database page for genus {genus}. Cannot continue.')
+			exit(1)
 		else:
 			# Parse the returned HTML
 			soup = BeautifulSoup(req.text, "lxml")
@@ -256,12 +250,10 @@ class NGA:
 		return None
 
 
-	def fetchGenus(self, genus):
+	def fetchGenus(self, genus, verbosity=1):
 		"""Retrieve the list of entries for a genus from the NGA database."""
 
-		stdout.write("\rRetrieving NGA dataset...")
-		stdout.flush()
-
+		core.stdoutWF("\rRetrieving NGA dataset...", 1, verbosity)
 		genus_pages = []
 
 		# Get the first page and find the number of plants and pages
@@ -302,15 +294,17 @@ class NGA:
 
 				# Tested adding multithreading here, but it doesn't provide enough of a benefit
 				for page in range(1, npages):
-					stdout.write(f'\rRetrieving NGA dataset... {page+1:d}/{npages:d}')
-					stdout.flush()
+					core.stdoutWF(f'\rRetrieving NGA dataset... {page+1:d}/{npages:d}', 2, verbosity)
 					genus_pages.append(self._fetchGenusPage(genus, page*increment))
 
-		stdout.write("\rRetrieving NGA dataset... done.        \r\n")
-		stdout.flush()
+
+		if verbosity > 1:
+			core.stdoutWF("\rRetrieving NGA dataset... done.        \r\n")
+		elif verbosity > 0:
+			core.stdoutWF(" done.\r\n")
 
 		# Parse the pages and extract the species and cultivars
-		return self._parseGenusPages(genus_pages, genus)
+		return self._parseGenusPages(genus_pages, genus, verbosity)
 
 
 	def search(self, search_term, recursed=False):
@@ -1083,7 +1077,7 @@ def _parseTableRow(row, cname_exclude=None):
 			entry_name = re.search(regex, anchor_text, re.DOTALL).group(1) # Remember to use group 1 here
 		except AttributeError:
 			print('\nERROR: Invalid anchor text -', anchor_text)
-			sys.exit(1)
+			exit(1)
 	else:
 		entry_name = anchor_text
 

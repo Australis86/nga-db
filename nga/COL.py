@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from time import sleep
 import requests
 from requests.auth import HTTPBasicAuth
+from . import core
 
 script_path = os.path.dirname(__file__)
 
@@ -338,7 +339,7 @@ class DCA(GBIF):
 		return (gpath, errmsg)
 
 
-	def fetchGenus(self, genus):
+	def fetchGenus(self, genus, verbosity=1):
 		"""Download the genus from the DCA and import it into a SQLite DB."""
 
 		if self.__cache is None:
@@ -352,11 +353,11 @@ class DCA(GBIF):
 
 		# Check the age of the cached data
 		if os.path.exists(fpath) and datetime.fromtimestamp(os.path.getmtime(fpath)) > self.__cache_age:
-			print(f'Recent SQLite DB for {genus} found. Skipping download and DB build.')
+			if verbosity > 1:
+				print(f'Recent SQLite DB for {genus} found. Skipping download and DB build.')
 			return fpath
 
-		stdout.write('Fetching Catalogue of Life Darwin Core Archive Export...')
-		stdout.flush()
+		core.stdoutWF('Fetching Catalogue of Life Darwin Core Archive Export...', 1, verbosity)
 		(gpath, errmsg) = self._exportGenus(genus)
 
 		# Attempt to build the DB

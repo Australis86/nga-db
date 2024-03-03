@@ -32,9 +32,10 @@ def initMenu():
 	parser = argparse.ArgumentParser()
 
 	parser.add_argument("genus", help="genus name")
+	parser.add_argument("-v", "--verbose", help="specify the level of verbosity (1-3)", action='count', default=0)
 	parser.add_argument("-e", "--existing", help="do not check for existing new plant proposals",
 		action="store_false", default=True)
-	parser.add_argument("-p", "--propose", help="automatically propose and approve (if possible) changes to the NGA database",
+	parser.add_argument("-p", "--propose", help="automatically propose and approve (if possible) changes to the NGA database (not available unless running in verbose mode)",
 		action="store_true")
 	parser.add_argument("-d", "--deprecated", help="allow script to continue for deprecated genera (no COL DWA export available)",
 		action="store_true")
@@ -53,7 +54,7 @@ def initMenu():
 	return parser.parse_args()
 
 
-def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, working_name=None, nga_hyb_status=None):
+def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, working_name=None, nga_hyb_status=None, verbosity=1):
 	"""Check a synonym in the COL.
 
 	Normally the working name field will be the same as the search term, but it allows handling of type varieties
@@ -72,7 +73,8 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 	col_search_term = search_term.replace(' x ',' × ')
 	results = col_obj.search(col_search_term)
 	if len(results) > 1:
-		print(' ',col_search_term,'-',results[1])
+		if verbosity > 0:
+			print(' ',col_search_term,'-',results[1])
 		msg = results[1]
 
 	retname = results[0]
@@ -96,12 +98,14 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 					if nga_formatted_name not in nga_dataset:
 						nga_dataset[nga_formatted_name] = nga_matches[nga_formatted_name]
 				else:
-					print(f' No exact match for {nga_formatted_name}')
+					if verbosity > 0:
+						print(f' No exact match for {nga_formatted_name}')
 					#print(nga_matches)
 
 		# Exclude results where the result matches the search term or the search term is only part of the result
 		if params_an > params_st and search_term in retname:
-			print("\tWarning: COL may be incomplete --",search_term,'->',retname)
+			if verbosity > 0:
+				print("\tWarning: COL may be incomplete --",search_term,'->',retname)
 		else:
 			# Update the dictionary
 			for cultivar in nga_dataset[working_name]:
@@ -117,10 +121,10 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 	return (retname, msg, duplicate)
 
 
-def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orchid_extensions=False):
+def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orchid_extensions=False, verbosity=1):
 	"""Compare the botanical entries in the NGA database with the DCA dataset."""
 
-	def checkHybStatus(notho_text, description, distribution=None):
+	def checkHybStatus(notho_text, description, distribution=None, verbosity=1):
 		'''Check for hybrid status.'''
 
 		notho_text = notho_text.lower().strip()
@@ -177,11 +181,11 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 	num_names = len(entries)
 	iteration = 0
 
+	nga.core.stdoutWF('\rChecking NGA botanical entries...', 1, verbosity)
 	for botanical_name in entries:
 		iteration += 1
 		percentage = 100.0*(iteration/num_names)
-		sys.stdout.write(f'\rChecking NGA botanical entries... {percentage:00.1f}%')
-		sys.stdout.flush()
+		nga.core.stdoutWF(f'\rChecking NGA botanical entries... {percentage:00.1f}%', 2, verbosity)
 
 		# Hybrid flags
 		nga_hyb = False
@@ -253,7 +257,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			notho = results[0][3]
 
 			# Check if hybrid (make sure it's not in question)
-			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(notho, description, distribution)
+			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(notho, description, distribution, verbosity)
 
 			# Name is accepted
 			if 'accepted' in status:
@@ -366,7 +370,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			elif 'synonym' in status:
 				# TO DO: Fix this so that named cultivars are handled properly, since if the species is named correctly these cultivars won't be automatically fixed
 				# Note that the species entry will have a cultivar name of ''
-				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, nga_db, col_engine, full_name, genus, nga_hyb_status=nga_hyb)
+				(new_bot_name, search_msg, duplicate) = checkSynonym(nga_dataset, nga_db, col_engine, full_name, genus, nga_hyb_status=nga_hyb, verbosity=verbosity)
 
 				if new_bot_name is not None:
 					if not duplicate and new_bot_name not in updated_names:
@@ -393,7 +397,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 
 			# Usually we only want to check the COL again if this entry isn't in the genus we're working on
 			# But occasionally entries are missing from the DCA dataset (sigh)
-			(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, nga_db, col_engine, full_name, genus, nga_hyb_status=nga_hyb)
+			(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, nga_db, col_engine, full_name, genus, nga_hyb_status=nga_hyb, verbosity=verbosity)
 
 			if accepted_name is not None:
 				if accepted_name != search_name and not duplicate and accepted_name not in updated_names:
@@ -439,7 +443,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 				if name_part1 == name_part3:
 					# This is a type variety, so check if the species rank taxon is still valid
 					species_taxon = ' '.join(fields[0:2])
-					(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, nga_db, col_engine, species_taxon, genus, full_name, nga_hyb)
+					(accepted_name, search_msg, duplicate) = checkSynonym(nga_dataset, nga_db, col_engine, species_taxon, genus, full_name, nga_hyb, verbosity=verbosity)
 
 					if accepted_name is not None:
 						if accepted_name != search_name and not duplicate and accepted_name not in updated_names:
@@ -508,8 +512,10 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 					nga_dataset[full_name][cultivar]['warning'] = True
 					nga_dataset[full_name][cultivar]['warning_desc'] = 'Not present in online sources'
 
-	sys.stdout.write('\rChecking NGA botanical entries... done.    \r\n')
-	sys.stdout.flush()
+	if verbosity > 1:
+		nga.core.stdoutWF('\rChecking NGA botanical entries... done.    \r\n')
+	elif verbosity > 0:
+		nga.core.stdoutWF(' done.\r\n')
 
 	if dca_db is not None:
 		# Check for missing accepted names
@@ -525,10 +531,10 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 		taxa = len(rows)
 		nga_dataset_additions = []
 
+		nga.core.stdoutWF('\rChecking COL records...', 1, verbosity)
 		for row in rows:
 			progress += 1.0
-			sys.stdout.write(f'\rChecking COL records... {(100.0*progress/taxa):00.1f}%')
-			sys.stdout.flush()
+			nga.core.stdoutWF(f'\rChecking COL records... {(100.0*progress/taxa):00.1f}%', 2, verbosity)
 
 			entry = row[0].strip() # Full botanical name
 			entry_final = entry # Version of name to be added to list
@@ -538,7 +544,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			check_nga = False
 
 			# Check hybrid status
-			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(notho, description, distribution)
+			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(notho, description, distribution, verbosity)
 
 			# If it's not a hybrid or a questionable one, check against the pending lists
 			if not col_hyb or (col_hyb and col_hyb_q):
@@ -615,9 +621,10 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 					#print("No valid synonym", entry)
 					nga_dataset_additions.append(entry_final)
 
-		sys.stdout.write('\rChecking COL records... done. \r\n')
-		sys.stdout.flush()
-
+		if verbosity > 1:
+			nga.core.stdoutWF('\rChecking COL records... done. \r\n')
+		elif verbosity > 0:
+			nga.core.stdoutWF(' done. \r\n')
 		nga_dataset['_additions'] = nga_dataset_additions
 
 	return nga_dataset
@@ -708,7 +715,7 @@ def checkRegisteredOrchids(genera, nga_dataset, nga_db, parentage_check=False):
 	return nga_dataset
 
 
-def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=False, parentage_check=False):
+def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=False, parentage_check=False, verbosity=1):
 	"""Compare the current DCA dataset to the current NGA dataset."""
 
 	# Ensure the genus name is properly formatted
@@ -733,17 +740,18 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 		genera = counts[1]
 		genera.sort()
 
-		if len(genera) > 1:
+		if len(genera) > 1 and verbosity > 0:
 			print("Identified Genera:", ', '.join(genera))
 
 		for gen in genera:
 			entries.remove(gen)
 	else:
-		print("Missing genus-level entry for",genus)
+		if verbosity > 0: 
+			print("Missing genus-level entry for",genus)
 		genera = []
 
 	# Compare datasets
-	nga_dataset = checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db, orchid_extensions)
+	nga_dataset = checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db, orchid_extensions, verbosity)
 
 	# For orchids only - check the RHS Orchid Register
 	if orchid_extensions and len(genera) > 0:
@@ -752,8 +760,11 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 	return (nga_dataset, genera)
 
 
-def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, propose=False, existing=False):
+def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, propose=False, existing=False, verbosity=1):
 	"""Display the pending changes to the NGA database and implement them if allowed."""
+
+	# Flag to indicate whether changes are required
+	changes_req = False
 
 	# Hybrids will be stored under the genera, whilst species will have their own entries
 	entries = list(set(list(nga_dataset.keys()))) # This gets all the botanical names
@@ -775,15 +786,15 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 	# Check if there are NGA entries
 	merges_req = False
 	if len(entries) > 0:
-
-		# Work through existing entries first
-		print("Processing botanical entries...", os.linesep,
-			"W = Warning (no action taken)", os.linesep,
-			"MP = Missing parentage information (hybrids only)", os.linesep,
-			"NH = Not listed as natural hybrid in the COL", os.linesep,
-			"PH = Listed as a possible hybrid in the COL", os.linesep,
-			"CN = Has the genus as the common name", os.linesep,
-			"MC = Missing a common name", os.linesep)
+		if verbosity > 0:
+			# Work through existing entries first
+			print("Processing botanical entries...", os.linesep,
+				"W = Warning (no action taken)", os.linesep,
+				"MP = Missing parentage information (hybrids only)", os.linesep,
+				"NH = Not listed as natural hybrid in the COL", os.linesep,
+				"PH = Listed as a possible hybrid in the COL", os.linesep,
+				"CN = Has the genus as the common name", os.linesep,
+				"MC = Missing a common name", os.linesep)
 
 		# Iterate through the list first to see if there are any name updates that result in merging of plants
 		reassignments = {}
@@ -816,24 +827,29 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 				# Check parentage field for natural hybrids
 				if 'nat_hyb' in selection_entry and not selection_entry['parentage_exists']:
 					if 'parentage' in selection_entry and selection_entry['parentage'] is not None:
-						print('MP ',botanical_name,f'({selection_entry["parentage"]["formula"]})')
+						if verbosity > 0:
+							print('MP ',botanical_name,f'({selection_entry["parentage"]["formula"]})')
 						update_selected_data = True
 					else:
-						print('MP ',botanical_name)
+						if verbosity > 0:
+							print('MP ',botanical_name)
 
 				# Flag an update to the database entry if the common name needs changing
 				if not selection_entry['warning'] and not ('changed' in selection_entry and selection_entry['changed']):
 					if selection_entry['common_name']:
-						print('CN ',botanical_name)
+						if verbosity > 0:
+							print('CN ',botanical_name)
 						update_selected_name = True
 					elif selection_entry['common_name'] is None and common_name is not None:
-						print('MC ',botanical_name)
+						if verbosity > 0:
+							print('MC ',botanical_name)
 						update_selected_name = True
 
 				# Check if the botanical name field needs updating
 				if 'changed' in selection_entry and selection_entry['changed']:
 					if selection_entry['warning']:
-						print('W  ', botanical_name, '->', selection_entry['new_bot_name'], f' ({selection_entry["warning_desc"]})')
+						if verbosity > 0:
+							print('W  ', botanical_name, '->', selection_entry['new_bot_name'], f' ({selection_entry["warning_desc"]})')
 						if not ('duplicate' in selection_entry and selection_entry['duplicate']) and selection_entry['new_bot_name'] in reassignments:
 							del reassignments[selection_entry['new_bot_name']]
 					else:
@@ -845,26 +861,34 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 								msg = "(Multiple names reassigned to this taxon)"
 							else:
 								update_selected_name = True
-								print('   ', botanical_name, '->', selection_entry['new_bot_name'], msg)
+								if verbosity > 0:
+									print('   ', botanical_name, '->', selection_entry['new_bot_name'], msg)
 								if selection_entry['new_bot_name'] in reassignments:
 									del reassignments[selection_entry['new_bot_name']]
 						else:
 							# This should handle cultivars that just need a botanical name update
 							update_selected_name = True
-							print('   ', full_name, '->', selection_entry['new_bot_name'], selection_name, msg)
+							if verbosity > 0:
+								print('   ', full_name, '->', selection_entry['new_bot_name'], selection_name, msg)
 
 				# Warn only if it's not a natural hybrid or might be a natural hybrid
 				elif 'not_nat_hybrid' in selection_entry and selection_entry['not_nat_hybrid']:
-					print('NH ', full_name)
+					if verbosity > 0:
+						print('NH ', full_name)
 				elif 'possible_hybrid' in selection_entry and selection_entry['possible_hybrid']:
-					print('PH ', full_name)
+					if verbosity > 0:
+						print('PH ', full_name)
 
 				# Otherwise print any warnings
 				elif selection_entry['warning']:
-					print('W  ', botanical_name, f' ({selection_entry["warning_desc"]})')
+					if verbosity > 0:
+						print('W  ', botanical_name, f' ({selection_entry["warning_desc"]})')
+
+				if update_selected_name or update_selected_data:
+						changes_req = True
 
 				# Propose name and data changes
-				if propose:
+				if propose and verbosity > 0:
 					if update_selected_name:
 						if common_name is not None:
 							cnames = [common_name]
@@ -876,213 +900,219 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 	# Highlight plants to combine/merge
 	if merges_req and len(reassignments.keys()) > 0:
-		print('''\nThese entries will need to be merged (synonym -> accepted name):
+		changes_req = True
+
+		if verbosity > 0:
+			print('''\nThese entries will need to be merged (synonym -> accepted name):
  M = Manual merge required
  W = Warning; entry should not have reached this section of code
  T = Target taxon does not yet exist; script will attempt to use entry with lowest PID\n''')
-		for new_name, reassigned in reassignments.items():
-			manual_merge = False
-			nway_merge = False
-			target_missing = False
-			merges = {}
+			for new_name, reassigned in reassignments.items():
+				manual_merge = False
+				nway_merge = False
+				target_missing = False
+				merges = {}
 
-			if new_name not in nga_dataset or '' not in nga_dataset[new_name]:
-				if len(reassigned) > 1:
-					# This indicates we have multiple names being assigned to a new name, but the new name doesn't exist yet in the database
-					# Need to select one of the existing plants to use and rename it, then merge the others into it
-					print('T  ', ', '.join(reassigned), '->', new_name)
-					target_missing = True
+				if new_name not in nga_dataset or '' not in nga_dataset[new_name]:
+					if len(reassigned) > 1:
+						# This indicates we have multiple names being assigned to a new name, but the new name doesn't exist yet in the database
+						# Need to select one of the existing plants to use and rename it, then merge the others into it
+						print('T  ', ', '.join(reassigned), '->', new_name)
+						target_missing = True
 
-					# Identify which plant to use to merge the others into - simplest approach is to use the lowest PID
-					lowest_pids = {}
-					merge_data = {}
+						# Identify which plant to use to merge the others into - simplest approach is to use the lowest PID
+						lowest_pids = {}
+						merge_data = {}
 
+						for botanical_name in reassigned:
+							botanical_entry = nga_dataset[botanical_name]
+
+							# Iterate through the selections for this taxon
+							for selection_name, selection_entry in botanical_entry.items():
+								if (selection_name not in lowest_pids) or (selection_entry['pid'] < lowest_pids[selection_name]['pid']):
+									lowest_pids[selection_name] = selection_entry
+
+								# Check for data fields
+								datafields = nga_db.checkPageFields(selection_entry)
+								if selection_name not in merge_data:
+									merge_data[selection_name] = {}
+								merge_data[selection_name][selection_entry['pid']] = {'entry': selection_entry, 'datafields': datafields}
+
+						if propose:
+							for selection_name, selection_entry in lowest_pids.items():
+								target_pid = selection_entry['pid']
+
+								if common_name is not None:
+									cnames = [common_name]
+								else:
+									cnames = []
+
+								if nga_db.proposeNameChange(selection_entry, cnames):
+									# Successfully updated the entry with the lowest PID, so prepare the merges next
+									for merge_obj in merge_data[selection_name].values():
+										merge_cultivar = merge_obj['entry']
+										merge_datafields = merge_obj['datafields']
+
+										if merge_cultivar['pid'] != target_pid:
+											if merge_datafields is None or len(merge_datafields['cards']) > 0 or len(merge_datafields['databoxes']) > 0:
+												print('M    ', merge_cultivar['full_name'], '->', new_name)
+											else:
+												print('     ', merge_cultivar['full_name'], '->', new_name)
+												if target_pid not in merges:
+													merges[target_pid] = []
+												merges[target_pid].append({'old':merge_cultivar, 'new':selection_entry, 'lnames': merge_datafields['botanical_names'], 'cnames': merge_datafields['common_names'], 'pids_reversed': False})
+
+					else:
+						# This should have been caught by previous code
+						print('W  ', ', '.join(reassigned), '->', new_name)
+						continue
+				else:
+					new_taxon = nga_dataset[new_name]
+					botanical_taxon = new_taxon['']
+					botanical_pid = botanical_taxon['pid']
+
+					# Iterate through the names that need to be updated
 					for botanical_name in reassigned:
 						botanical_entry = nga_dataset[botanical_name]
 
 						# Iterate through the selections for this taxon
-						for selection_name, selection_entry in botanical_entry.items():
-							if (selection_name not in lowest_pids) or (selection_entry['pid'] < lowest_pids[selection_name]['pid']):
-								lowest_pids[selection_name] = selection_entry
-
-							# Check for data fields
-							datafields = nga_db.checkPageFields(selection_entry)
-							if selection_name not in merge_data:
-								merge_data[selection_name] = {}
-							merge_data[selection_name][selection_entry['pid']] = {'entry': selection_entry, 'datafields': datafields}
-
-					if propose:
-						for selection_name, selection_entry in lowest_pids.items():
-							target_pid = selection_entry['pid']
-
-							if common_name is not None:
-								cnames = [common_name]
+						for selection_name in botanical_entry:
+							if len(selection_name) > 0:
+								# If this is a named selection, we need to check if it also exists with the new name
+								if selection_name in new_taxon:
+									cultivar = new_taxon[selection_name]
+									cultivar_pid = cultivar['pid']
+								else:
+									manual_merge = True
+									print(f'W   Existing cultivar {botanical_name} {selection_name} -> {new_name} {selection_name} may need to be manually updated')
+									break
 							else:
-								cnames = []
+								cultivar_entry = botanical_taxon
+								cultivar_pid = botanical_pid
 
-							if nga_db.proposeNameChange(selection_entry, cnames):
-								# Successfully updated the entry with the lowest PID, so prepare the merges next
-								for merge_obj in merge_data[selection_name].values():
-									merge_cultivar = merge_obj['entry']
-									merge_datafields = merge_obj['datafields']
+							# Fetch the selection and its database plant id (pid)
+							selection_entry = botanical_entry[selection_name]
+							selection_pid = selection_entry['pid']
 
-									if merge_cultivar['pid'] != target_pid:
-										if merge_datafields is None or len(merge_datafields['cards']) > 0 or len(merge_datafields['databoxes']) > 0:
-											print('M    ', merge_cultivar['full_name'], '->', new_name)
-										else:
-											print('     ', merge_cultivar['full_name'], '->', new_name)
-											if target_pid not in merges:
-												merges[target_pid] = []
-											merges[target_pid].append({'old':merge_cultivar, 'new':selection_entry, 'lnames': merge_datafields['botanical_names'], 'cnames': merge_datafields['common_names'], 'pids_reversed': False})
+							# Compare PIDs (higher PID gets merged into lower PID)
+							pids_reversed = selection_pid < cultivar_pid
 
-				else:
-					# This should have been caught by previous code
-					print('W  ', ', '.join(reassigned), '->', new_name)
-					continue
-			else:
-				new_taxon = nga_dataset[new_name]
-				botanical_taxon = new_taxon['']
-				botanical_pid = botanical_taxon['pid']
-
-				# Iterate through the names that need to be updated
-				for botanical_name in reassigned:
-					botanical_entry = nga_dataset[botanical_name]
-
-					# Iterate through the selections for this taxon
-					for selection_name in botanical_entry:
-						if len(selection_name) > 0:
-							# If this is a named selection, we need to check if it also exists with the new name
-							if selection_name in new_taxon:
-								cultivar = new_taxon[selection_name]
-								cultivar_pid = cultivar['pid']
+							if pids_reversed:
+								# Entry with accepted name has higher PID
+								datafields = nga_db.checkPageFields(cultivar_entry)
 							else:
+								datafields = nga_db.checkPageFields(selection_entry)
+
+							# If the plant to be merged has datafields or its pid takes precedence over the target pid, flag that this needs to be resolved manually
+							if datafields is None or len(datafields['cards']) > 0 or len(datafields['databoxes']) > 0:
 								manual_merge = True
-								print(f'W   Existing cultivar {botanical_name} {selection_name} -> {new_name} {selection_name} may need to be manually updated')
-								break
-						else:
-							cultivar_entry = botanical_taxon
-							cultivar_pid = botanical_pid
-
-						# Fetch the selection and its database plant id (pid)
-						selection_entry = botanical_entry[selection_name]
-						selection_pid = selection_entry['pid']
-
-						# Compare PIDs (higher PID gets merged into lower PID)
-						pids_reversed = selection_pid < cultivar_pid
-
-						if pids_reversed:
-							# Entry with accepted name has higher PID
-							datafields = nga_db.checkPageFields(cultivar_entry)
-						else:
-							datafields = nga_db.checkPageFields(selection_entry)
-
-						# If the plant to be merged has datafields or its pid takes precedence over the target pid, flag that this needs to be resolved manually
-						if datafields is None or len(datafields['cards']) > 0 or len(datafields['databoxes']) > 0:
-							manual_merge = True
-						else:
-							if cultivar_pid not in merges:
-								merges[cultivar_pid] = []
 							else:
-								# Multiple entries are being combined
-								nway_merge = True
+								if cultivar_pid not in merges:
+									merges[cultivar_pid] = []
+								else:
+									# Multiple entries are being combined
+									nway_merge = True
 
-							merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'lnames': datafields['botanical_names'], 'cnames': datafields['common_names'], 'pids_reversed': pids_reversed})
+								merges[cultivar_pid].append({'old':selection_entry, 'new':cultivar_entry, 'lnames': datafields['botanical_names'], 'cnames': datafields['common_names'], 'pids_reversed': pids_reversed})
 
-			if manual_merge:
-				print('M  ', ', '.join(reassigned), '->', new_name)
+				if manual_merge:
+					print('M  ', ', '.join(reassigned), '->', new_name)
 
-			elif nway_merge:
-				print('   ', ', '.join(reassigned), '->', new_name)
-
-				# Iterate through the pairs and work out which order to combine them
-				for pid, merge in merges.items():
-					lowest_pid = pid
-					first_merge = None
-					new_target = None
-
-					# Identify lowest PID
-					for entry in merge:
-						old_pid = entry['old']['pid']
-						new_pid = entry['new']['pid']
-						low_pid = min(old_pid, new_pid)
-
-						# Keep a reference to the plant entry with the lowest PID
-						# Also store the merge pair that contains the lowest PID, as this will be merged first
-						if low_pid <= lowest_pid:
-							lowest_pid = low_pid
-							first_merge = entry
-
-							if old_pid < new_pid:
-								new_target = entry['old']
-							else:
-								new_target = entry['new']
-
-					# If we successfully identified the first pair of entries to merge, we can merge them and then continue with the other merges
-					if first_merge is not None:
-
-						# Remove this pair from the list of merges
-						merge.remove(first_merge)
-						if propose:
-							print('     ', first_merge['old']['full_name'], '->', first_merge['new']['full_name'])
-							if nga_db.proposeMerge(first_merge['old'], first_merge['new'], first_merge['lnames'], first_merge['cnames']):
-
-								# Iterate through the remaining merges
-								for merge_pairs in merges.values():
-									for entry in merge_pairs:
-										print('     ', entry['old']['full_name'], '->', first_merge['new']['full_name'])
-
-										# Update the target entry since this might have changed, depending on
-										# which of the two plants in the first merge has the lower PID
-										nga_db.proposeMerge(entry['old'], new_target, entry['lnames'], entry['cnames'])
-
-			else:
-				if not target_missing:
+				elif nway_merge:
 					print('   ', ', '.join(reassigned), '->', new_name)
 
-				# for merge in merges.values():
-					# for entry in merge:
-						# print(entry)
+					# Iterate through the pairs and work out which order to combine them
+					for pid, merge in merges.items():
+						lowest_pid = pid
+						first_merge = None
+						new_target = None
 
-				if propose:
-					for merge in merges.values():
+						# Identify lowest PID
 						for entry in merge:
-							nga_db.proposeMerge(entry['old'], entry['new'], entry['lnames'], entry['cnames'])
+							old_pid = entry['old']['pid']
+							new_pid = entry['new']['pid']
+							low_pid = min(old_pid, new_pid)
+
+							# Keep a reference to the plant entry with the lowest PID
+							# Also store the merge pair that contains the lowest PID, as this will be merged first
+							if low_pid <= lowest_pid:
+								lowest_pid = low_pid
+								first_merge = entry
+
+								if old_pid < new_pid:
+									new_target = entry['old']
+								else:
+									new_target = entry['new']
+
+						# If we successfully identified the first pair of entries to merge, we can merge them and then continue with the other merges
+						if first_merge is not None:
+
+							# Remove this pair from the list of merges
+							merge.remove(first_merge)
+							if propose:
+								print('     ', first_merge['old']['full_name'], '->', first_merge['new']['full_name'])
+								if nga_db.proposeMerge(first_merge['old'], first_merge['new'], first_merge['lnames'], first_merge['cnames']):
+
+									# Iterate through the remaining merges
+									for merge_pairs in merges.values():
+										for entry in merge_pairs:
+											print('     ', entry['old']['full_name'], '->', first_merge['new']['full_name'])
+
+											# Update the target entry since this might have changed, depending on
+											# which of the two plants in the first merge has the lower PID
+											nga_db.proposeMerge(entry['old'], new_target, entry['lnames'], entry['cnames'])
+
+				else:
+					if not target_missing:
+						print('   ', ', '.join(reassigned), '->', new_name)
+
+					# for merge in merges.values():
+						# for entry in merge:
+							# print(entry)
+
+					if propose:
+						for merge in merges.values():
+							for entry in merge:
+								nga_db.proposeMerge(entry['old'], entry['new'], entry['lnames'], entry['cnames'])
 
 	# Add any missing accepted names
 	if len(additions) > 0:
-		if propose or existing:
-			sys.stdout.write('\r\nRetrieving any existing new plant proposals...')
-			sys.stdout.flush()
-			pending = nga_db.fetchNewProposals()
-			if pending is None:
-				print("\nUnable to retrieve new plant proposals - either an error occurred or you may not have mod rights.")
-				if propose:
-					sys.exit(1)
-			else:
-				sys.stdout.write(f' done. {len(pending.keys())} found.\r\n')
+		changes_req = True
+
+		if verbosity > 0:
+			if propose or existing:
+				sys.stdout.write('\r\nRetrieving any existing new plant proposals...')
 				sys.stdout.flush()
-		else:
-			pending = None
-
-		print("\nAccepted names missing from database:")
-
-		for new_name in additions:
-			# Check if there is an existing proposal first
-			pid = nga.NGA.checkNewProposal(pending, new_name)
-			if pid is not None:
-				print('   ',new_name,f'[proposal {pid}]')
-			else:
-				print('   ',new_name)
-
-			if propose:
-				if pid is not None:
-					nga_db.approveNewProposal(pid)
+				pending = nga_db.fetchNewProposals()
+				if pending is None:
+					print("\nUnable to retrieve new plant proposals - either an error occurred or you may not have mod rights.")
+					if propose:
+						sys.exit(1)
 				else:
-					nga_db.proposeNewPlant(new_name, common_name)
+					sys.stdout.write(f' done. {len(pending.keys())} found.\r\n')
+					sys.stdout.flush()
+			else:
+				pending = None
+
+			print("\nAccepted names missing from database:")
+
+			for new_name in additions:
+				# Check if there is an existing proposal first
+				pid = nga.NGA.checkNewProposal(pending, new_name)
+				if pid is not None:
+					print('   ',new_name,f'[proposal {pid}]')
+				else:
+					print('   ',new_name)
+
+				if propose:
+					if pid is not None:
+						nga_db.approveNewProposal(pid)
+					else:
+						nga_db.proposeNewPlant(new_name, common_name)
 
 	# Check hybrids
 	genera_count = len(genera)
-	if genera_count > 0:
+	if genera_count > 0 and verbosity > 0:
 		print("\nProcessing hybrid entries...", os.linesep,
 		"W = Warning (no action taken)", os.linesep,
 		"MP = Missing parentage information (hybrids only)", os.linesep,
@@ -1097,43 +1127,48 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 			hybrid_names.remove('')
 
 		if len(hybrid_names) > 0:
+			changes_req = True
 
-			# Only print out genus name if there's more than one
-			if genera_count > 1:
-				print('-',genus)
+			if verbosity > 0:
 
-			# Iterate through all the hybrids in this genus
-			for hybrid in hybrid_names:
-				hybrid_entry = hybrids[genus][hybrid]
-				update_hybrid_name = False
-				update_hybrid_data = False
+				# Only print out genus name if there's more than one
+				if genera_count > 1:
+					print('-',genus)
 
-				if hybrid_entry['common_name']:
-					update_hybrid_name = True
+				# Iterate through all the hybrids in this genus
+				for hybrid in hybrid_names:
+					hybrid_entry = hybrids[genus][hybrid]
+					update_hybrid_name = False
+					update_hybrid_data = False
 
-				if 'remove_quotes' in hybrid_entry and hybrid_entry['remove_quotes']:
-					update_hybrid_name = True
-					print('Q  ', hybrid)
+					if hybrid_entry['common_name']:
+						update_hybrid_name = True
 
-				# Hybrid entries that aren't registered
-				if 'registered' in hybrid_entry and not hybrid_entry['registered']:
-					print('NR ', hybrid)
+					if 'remove_quotes' in hybrid_entry and hybrid_entry['remove_quotes']:
+						update_hybrid_name = True
+						print('Q  ', hybrid)
 
-				# Hybrid entries with missing parentage information
-				elif 'parentage_exists' in hybrid_entry and not hybrid_entry['parentage_exists'] and hybrid_entry['parentage'] is not None and not hybrid_entry['parentage']['violates_rules']:
-					update_hybrid_data = True
-					print('MP ', hybrid, '--', hybrid_entry['parentage']['formula'])
+					# Hybrid entries that aren't registered
+					if 'registered' in hybrid_entry and not hybrid_entry['registered']:
+						print('NR ', hybrid)
 
-				# Update the hybrid entry as required
-				if propose:
-					if update_hybrid_name:
-						if common_name is not None:
-							cnames = [common_name]
-						else:
-							cnames = []
-						nga_db.proposeNameChange(hybrid_entry, cnames)
-					if update_hybrid_data:
-						nga_db.proposeDataUpdate(hybrid_entry, genus)
+					# Hybrid entries with missing parentage information
+					elif 'parentage_exists' in hybrid_entry and not hybrid_entry['parentage_exists'] and hybrid_entry['parentage'] is not None and not hybrid_entry['parentage']['violates_rules']:
+						update_hybrid_data = True
+						print('MP ', hybrid, '--', hybrid_entry['parentage']['formula'])
+
+					# Update the hybrid entry as required
+					if propose:
+						if update_hybrid_name:
+							if common_name is not None:
+								cnames = [common_name]
+							else:
+								cnames = []
+							nga_db.proposeNameChange(hybrid_entry, cnames)
+						if update_hybrid_data:
+							nga_db.proposeDataUpdate(hybrid_entry, genus)
+
+	return changes_req
 
 
 def main(namespace_args):
@@ -1148,7 +1183,7 @@ def main(namespace_args):
 	# Fetch latest genus data from the Darwin Core Archive
 	darwin_core = nga.COL.DCA()
 	darwin_core.setCache(namespace_args.cache)
-	dca_cache = darwin_core.fetchGenus(namespace_args.genus)
+	dca_cache = darwin_core.fetchGenus(namespace_args.genus, namespace_args.verbose)
 
 	if dca_cache is None and not namespace_args.deprecated:
 		print("Error: unable to continue without COL DCA dataset. If this is a deprecated genus, try using the -d flag.")
@@ -1156,14 +1191,14 @@ def main(namespace_args):
 
 	# Fetch current NGA database list
 	nga_db = nga.NGA.NGA()
-	nga_dataset = nga_db.fetchGenus(namespace_args.genus)
+	nga_dataset = nga_db.fetchGenus(namespace_args.genus, namespace_args.verbose)
 
 	if nga_dataset is None:
 		print("Error: unable to continue without NGA dataset.")
 		sys.exit(1)
 
 	# Compare the datasets
-	(nga_dataset, genera) = compareDatasets(namespace_args.genus, dca_cache, nga_dataset, nga_db, namespace_args.orchids, namespace_args.parentage)
+	(nga_dataset, genera) = compareDatasets(namespace_args.genus, dca_cache, nga_dataset, nga_db, namespace_args.orchids, namespace_args.parentage, namespace_args.verbose)
 
 	# For Orchids, set the common name
 	if namespace_args.orchids:
@@ -1172,7 +1207,9 @@ def main(namespace_args):
 		common_name = namespace_args.name
 
 	# Display the recommended changes and implement them
-	processDatasetChanges(genera, nga_dataset, nga_db, common_name, namespace_args.propose, namespace_args.existing)
+	changes = processDatasetChanges(genera, nga_dataset, nga_db, common_name, namespace_args.propose, namespace_args.existing, namespace_args.verbose)
+	if changes:
+		sys.exit(65)
 
 
 if __name__ == '__main__':
