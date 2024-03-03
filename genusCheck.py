@@ -1187,7 +1187,7 @@ def main(namespace_args):
 
 	if dca_cache is None and not namespace_args.deprecated:
 		print("Error: unable to continue without COL DCA dataset. If this is a deprecated genus, try using the -d flag.")
-		sys.exit(1)
+		sys.exit(66)
 
 	# Fetch current NGA database list
 	nga_db = nga.NGA.NGA()

@@ -16,9 +16,15 @@ while read line; do
 
 	if [ $ecode -eq 65 ]; then 
 		echo "$line"
-		echo "$line: CHANGES REQUIRED" >> $logfile
+		echo "$line -- CHANGES REQUIRED" >> $logfile
 		echo "$results" >> $logfile
 		echo -e "\n\n" >> $logfile
+	elif [ $ecode -eq 66 ]; then
+		echo "$line -- POSSIBLY DEPRECATED"
+		echo "$line -- POSSIBLY DEPRECATED" >> $logfile
+	elif [ $ecode -ne 0 ]; then
+		echo "$line -- UNKNOWN ERROR"
+		echo "$line -- UNKNOWN ERROR" >> $logfile
 	else
 		echo "$line" >> $logfile
 	fi
