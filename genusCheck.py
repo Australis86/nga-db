@@ -124,7 +124,7 @@ def checkSynonym(nga_dataset, nga_obj, col_obj, search_term, working_genus, work
 def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orchid_extensions=False, verbosity=1):
 	"""Compare the botanical entries in the NGA database with the DCA dataset."""
 
-	def checkHybStatus(notho_text, description, distribution=None, verbosity=1):
+	def checkHybStatus(notho_text, description, distribution=None):
 		'''Check for hybrid status.'''
 
 		notho_text = notho_text.lower().strip()
@@ -257,7 +257,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			notho = results[0][3]
 
 			# Check if hybrid (make sure it's not in question)
-			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(notho, description, distribution, verbosity)
+			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(notho, description, distribution)
 
 			# Name is accepted
 			if 'accepted' in status:
@@ -544,7 +544,7 @@ def checkBotanicalEntries(genus, dca_db, nga_dataset, entries, nga_db=None, orch
 			check_nga = False
 
 			# Check hybrid status
-			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(notho, description, distribution, verbosity)
+			(col_hyb, col_hyb_q, nat_hyb) = checkHybStatus(notho, description, distribution)
 
 			# If it's not a hybrid or a questionable one, check against the pending lists
 			if not col_hyb or (col_hyb and col_hyb_q):
@@ -746,7 +746,7 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 		for gen in genera:
 			entries.remove(gen)
 	else:
-		if verbosity > 0: 
+		if verbosity > 0:
 			print("Missing genus-level entry for",genus)
 		genera = []
 
@@ -885,7 +885,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 						print('W  ', botanical_name, f' ({selection_entry["warning_desc"]})')
 
 				if update_selected_name or update_selected_data:
-						changes_req = True
+					changes_req = True
 
 				# Propose name and data changes
 				if propose and verbosity > 0:

@@ -6,7 +6,7 @@ from sys import stdout, stderr
 
 def stdoutWF(content, min_verbosity=1, verbosity=1):
 	'''Write to stdout and immediately flush.'''
-	
+
 	if verbosity >= min_verbosity:
 		stdout.write(content)
 		stdout.flush()

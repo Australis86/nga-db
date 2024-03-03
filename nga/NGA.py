@@ -10,20 +10,20 @@ This script is designed for Python 3 and Beautiful Soup 4 with the lxml parser."
 
 # Module imports
 import os
+import sys
 import json
 import re
 import time
 import getpass
 from collections import OrderedDict
 from urllib.parse import urljoin, urlparse, parse_qs
-from sys import exit, stdout
+import urllib3
 import requests
 from bs4 import BeautifulSoup
 from titlecase import titlecase
-
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from . import core
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class NGA:
@@ -182,7 +182,7 @@ class NGA:
 		self._session.get(self._home_url)
 
 
-	def _parseGenusPage(self, page_soup, genus=None, verbosity=1):
+	def _parseGenusPage(self, page_soup, genus=None):
 		"""Parse a BeautifulSoup object returned by the _fetchGenusPage function."""
 
 		# Get the table on the page
@@ -220,7 +220,7 @@ class NGA:
 
 		for page in pages:
 			core.stdoutWF(f'\rParsing NGA dataset... {count:d}/{total:d}', 2, verbosity)
-			self._parseGenusPage(page, genus, verbosity)
+			self._parseGenusPage(page, genus)
 			count += 1
 
 		n_entries = len(list(self._genus_results))
@@ -241,7 +241,7 @@ class NGA:
 			req = self._session.get(self._genus_url % genus, params=params)
 		except requests.exceptions.RequestException:
 			core.stderrWF(f'\nError retrieving NGA database page for genus {genus}. Cannot continue.')
-			exit(1)
+			sys.exit(1)
 		else:
 			# Parse the returned HTML
 			soup = BeautifulSoup(req.text, "lxml")
@@ -282,8 +282,7 @@ class NGA:
 								increment = offset
 
 							# Get the number of pages (look for the highest number)
-							if num > npages:
-								npages = num
+							npages = max(npages, num)
 
 						except ValueError:
 							pass
@@ -1077,7 +1076,7 @@ def _parseTableRow(row, cname_exclude=None):
 			entry_name = re.search(regex, anchor_text, re.DOTALL).group(1) # Remember to use group 1 here
 		except AttributeError:
 			print('\nERROR: Invalid anchor text -', anchor_text)
-			exit(1)
+			sys.exit(1)
 	else:
 		entry_name = anchor_text
 
