@@ -348,10 +348,12 @@ class NGA:
 		return None
 
 
-	def checkPageFields(self, plant):
+	def checkPageFields(self, plant, verbosity=0):
 		"""Check which fields are populated on a plant database entry. Useful for determining if we can automatically merge entries."""
 
 		planturl = urljoin(self._home_url, plant['url'])
+		if verbosity > 1:
+			print(f'Analysing fields for {plant["full_name"]}.')
 
 		try:
 			req = self._session.get(planturl)
@@ -364,6 +366,7 @@ class NGA:
 		fields = {
 			'cards': [],
 			'databoxes': [],
+			'databox_contents': {},
 			'common_names': [],
 			'botanical_names': [],
 		}
@@ -401,29 +404,36 @@ class NGA:
 		captions = soup.findAll('caption')
 		if len(captions) > 0:
 			for caption in captions:
-				contents = caption.get_text().strip().split(' (')[0]
+				databox_name = caption.get_text().strip().split(' (')[0]
 
 				# Exclude plant events, as these are preserved during a merge
-				if contents not in 'Plant Events from our members':
+				if databox_name not in 'Plant Events from our members':
 					cparent = caption.parent
 					# Check if the only field is Conservation Status
 					if 'Conservation' not in cparent.get_text():
 						# Not the Conservation Status, so need to sanity-check the rest
 						rows = cparent.find_all('tr')
 						rcount = len(rows)
+						dataset = {}
 
 						# Check the table rows to see if we can ignore the fields that are present
 						for row in rows:
 							cells = row.find_all('td')
 							rowlabel = cells[0].get_text().strip().replace(":","")
-							print(rowlabel)
+							rowvalue = cells[1].get_text().strip()
+							#print('\t\t',rowlabel, '->', [rowvalue])
 
 							# If we can ignore this row, subtract it from the row count
 							if rowlabel in ["Plant Habit"]:
 								rcount = rcount - 1
+							else:
+								dataset[rowlabel] = rowvalue
 
 						if rcount > 0:
-							fields['databoxes'].append(contents)
+							fields['databoxes'].append(databox_name)
+							fields['databox_contents'][databox_name] = dataset
+							if verbosity > 2:
+								print(dataset)
 
 		# Debug output to see which cards or data tables are present
 		#if len(fields['cards']) > 0 or len(fields['databoxes']) > 0:

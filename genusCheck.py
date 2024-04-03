@@ -933,7 +933,7 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 									lowest_pids[selection_name] = selection_entry
 
 								# Check for data fields
-								datafields = nga_db.checkPageFields(selection_entry)
+								datafields = nga_db.checkPageFields(selection_entry, verbosity)
 								if selection_name not in merge_data:
 									merge_data[selection_name] = {}
 								merge_data[selection_name][selection_entry['pid']] = {'entry': selection_entry, 'datafields': datafields}
@@ -999,9 +999,9 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 							if pids_reversed:
 								# Entry with accepted name has higher PID
-								datafields = nga_db.checkPageFields(cultivar_entry)
+								datafields = nga_db.checkPageFields(cultivar_entry, verbosity)
 							else:
-								datafields = nga_db.checkPageFields(selection_entry)
+								datafields = nga_db.checkPageFields(selection_entry, verbosity)
 
 							# If the plant to be merged has datafields or its pid takes precedence over the target pid, flag that this needs to be resolved manually
 							if datafields is None or len(datafields['cards']) > 0 or len(datafields['databoxes']) > 0:
