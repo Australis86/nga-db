@@ -765,8 +765,8 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 
 	def compareDict(dict_a, dict_b):
 		'''Method to compare two dictionaries.'''
-		
-		# TODO: Improve this in future
+
+		# Very basic comparison
 		if dict_a != dict_b:
 			print(dict_a)
 			print(dict_b)
