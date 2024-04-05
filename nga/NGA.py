@@ -352,7 +352,7 @@ class NGA:
 		"""Check which fields are populated on a plant database entry. Useful for determining if we can automatically merge entries."""
 
 		planturl = urljoin(self._home_url, plant['url'])
-		if verbosity > 1:
+		if verbosity > 2:
 			print(f'Analysing fields for {plant["full_name"]}.')
 
 		try:
@@ -432,7 +432,7 @@ class NGA:
 						if rcount > 0:
 							fields['databoxes'].append(databox_name)
 							fields['databox_contents'][databox_name] = dataset
-							if verbosity > 2:
+							if verbosity > 3:
 								print(dataset)
 
 		# Debug output to see which cards or data tables are present

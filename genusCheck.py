@@ -763,6 +763,17 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, propose=False, existing=False, verbosity=1):
 	"""Display the pending changes to the NGA database and implement them if allowed."""
 
+	def compareDict(dict_a, dict_b):
+		'''Method to compare two dictionaries.'''
+		
+		# TODO: Improve this in future
+		if dict_a != dict_b:
+			print(dict_a)
+			print(dict_b)
+
+		return (dict_a == dict_b)
+
+
 	# Flag to indicate whether changes are required
 	changes_req = False
 
@@ -997,14 +1008,22 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							# Compare PIDs (higher PID gets merged into lower PID)
 							pids_reversed = selection_pid < cultivar_pid
 
+							# Get both sets of datafields for comparison
+							data_c = nga_db.checkPageFields(cultivar_entry, verbosity)
+							data_s = nga_db.checkPageFields(selection_entry, verbosity)
+
 							if pids_reversed:
 								# Entry with accepted name has higher PID
-								datafields = nga_db.checkPageFields(cultivar_entry, verbosity)
+								datafields = data_c
 							else:
-								datafields = nga_db.checkPageFields(selection_entry, verbosity)
+								datafields = data_s
 
-							# If the plant to be merged has datafields or its pid takes precedence over the target pid, flag that this needs to be resolved manually
-							if datafields is None or len(datafields['cards']) > 0 or len(datafields['databoxes']) > 0:
+							data_match = compareDict(data_c['databox_contents'], data_s['databox_contents'])
+							if verbosity > 2:
+								print("General data comparison:", data_match)
+
+							# If the plants to be merged have different datafields, this needs to be resolved manually
+							if datafields is None or len(datafields['cards']) > 0 or (len(datafields['databoxes']) > 0 and not data_match):
 								manual_merge = True
 							else:
 								if cultivar_pid not in merges:
