@@ -22,6 +22,7 @@ class Register:
 		to the RHS Orchid Register."""
 
 		self._search_url = 'https://apps.rhs.org.uk/horticulturaldatabase/orchidregister/orchidresults.asp'
+		self._parentage_url = 'https://apps.rhs.org.uk/horticulturaldatabase/orchidregister/parentageresults.asp'
 		self._dbconn = None
 		self._columns = None
 
@@ -96,7 +97,7 @@ class Register:
 			# First column should be the field name and second is the value
 			for row in rows:
 				cells = row.findAll('td')
-				grex[cells[0].text] = cells[1].text
+				grex[cells[0].text] = cells[1].text.replace('  ',' ')
 
 			# Process the second table containing the parentage information
 			parentage = tables[1]
@@ -179,7 +180,7 @@ class Register:
 			print("No active connection to the SQLite database.")
 
 
-	def _parseSearchResults(self, soup, genus, results):
+	def _parseSearchResults(self, soup, results, genus=None):
 		"""Parse a result page from the RHS search."""
 
 		rows = soup.findAll('tr')
@@ -200,9 +201,9 @@ class Register:
 				name = name.replace('(','[').replace(')',']')
 
 				# If the resultant grex is in the correct genus
-				if page_genus in genus:
+				if (genus is None) or (page_genus in genus):
 					relpath = hybrid.find('a')['href']
-					results['matches'][name] = urljoin(self._search_url, relpath)
+					results['matches'][name] = {'url': urljoin(self._search_url, relpath), 'genus': page_genus}
 
 		return results
 
@@ -245,7 +246,7 @@ class Register:
 
 		# The first page
 		results = {'matched':False, 'matches':{}, 'source':'web', 'pod_parent':None, 'pollen_parent':None}
-		results = self._parseSearchResults(soup, genus, results)
+		results = self._parseSearchResults(soup, results, genus)
 		results['matched'] = grex in results['matches']
 
 		# If it's not matched and there are more pages, fetch those, too
@@ -263,7 +264,7 @@ class Register:
 
 					# Parse the returned HTML
 					soup = BeautifulSoup(req.text, "lxml")
-					results = self._parseSearchResults(soup, genus, results)
+					results = self._parseSearchResults(soup, results, genus)
 					results['matched'] = grex in results['matches']
 					if results['matched']:
 						break # No need to keep looping
@@ -271,7 +272,7 @@ class Register:
 		# Automatically cache results
 		if self._dbconn is not None:
 			if results['matched'] :
-				dataset = self.cacheGrex(results['matches'][grex])
+				dataset = self.cacheGrex(results['matches'][grex]['url'])
 
 				if dataset is not None:
 					results['pod_parent'] = (dataset['pod_parent_genus'],dataset['pod_parent_epithet'])
@@ -282,16 +283,169 @@ class Register:
 		return results
 
 
-def testModule(database='./RHS.db'):
+	def searchParentage(self, pod_parent_genus, pod_parent_grex, pollen_parent_genus, pollen_parent_grex, check_reverse=True, force=False):
+		"""Search the register for a registration matching
+		the supplied parentage."""
+
+		def _parentageSearch(url_params, reversed=False):
+			""" """
+			
+			# Parentage search using original order
+			try:
+				req = self._session.get(self._parentage_url, params=url_params)
+			except requests.exceptions.RequestException:
+				return None
+
+			# Parse the returned HTML
+			soup = BeautifulSoup(req.text, "lxml")
+			page_nav = soup.find('div', {'class':'pagination'})
+
+			# The first page (there should not be multiple when searching based on parentage!)
+			results = {'matched':False, 'matches':{}, 'parents_reversed':reversed, 'source':'web', 'genus':None, 'epithet':None}
+			results = self._parseSearchResults(soup, results, expected_genus)
+			return results
+
+
+		# Create the URL parameters object
+		db_params = {'pod_parent_genus': pod_parent_genus, 'pod_parent': pod_parent_grex.replace('(','[').replace(')',']'),
+			'pollen_parent_genus': pollen_parent_genus, 'pollen_parent': pollen_parent_grex.replace('(','[').replace(')',']')} # Substitute any parentheses in the grex for brackets
+		url_params = {'seedgen': pod_parent_genus, 'seedgrex': pod_parent_grex.replace('[','(').replace(']',')'),
+			'pollgen': pollen_parent_genus, 'pollgrex': pollen_parent_grex.replace('[','(').replace(']',')'), '#':''} # Substitute any brackets in the grex for parentheses
+		reversed_url_params = {'seedgen': url_params['pollgen'], 'seedgrex': url_params['pollgrex'],
+			'pollgen': url_params['seedgen'], 'pollgrex': url_params['seedgrex'], '#':''}
+
+		# First check to see if this entry is currently in the database cache
+		if self._dbconn is not None and not force:
+			sql = '''SELECT genus, epithet, pod_parent_genus, pod_parent_epithet, pollen_parent_genus, pollen_parent_epithet FROM registrations WHERE pod_parent_genus=:pod_parent_genus AND pod_parent_epithet=:pod_parent AND pollen_parent_genus=:pollen_parent_genus AND pollen_parent_epithet=:pollen_parent'''
+			cur = self._dbconn.execute(sql, db_params)
+			rows = cur.fetchall()
+
+			if rows is not None and len(rows) > 0:
+				return {'matched':True, 'parents_reversed':False, 'source':'db', 'genus':rows[0][0], 'epithet':rows[0][1]}
+
+			if check_reverse:
+				sql = '''SELECT genus, epithet, pod_parent_genus, pod_parent_epithet, pollen_parent_genus, pollen_parent_epithet FROM registrations WHERE pod_parent_genus=:pollen_parent_genus AND pod_parent_epithet=:pollen_parent AND pollen_parent_genus=:pod_parent_genus AND pollen_parent_epithet=:pod_parent'''
+				cur = self._dbconn.execute(sql, db_params)
+				rows = cur.fetchall()
+
+				if rows is not None and len(rows) > 0:
+					return {'matched':True, 'parents_reversed':True, 'source':'db', 'genus':rows[0][0], 'epithet':rows[0][1]}
+
+		# Determine expected genus
+		if pod_parent_genus == pollen_parent_genus:
+			expected_genus = pod_parent_genus
+		else:
+			expected_genus = None
+
+		# Parentage search using original order
+		results = _parentageSearch(url_params)
+		matches = len(results['matches'])
+		if matches > 1:
+			datasets = []
+
+			# Iterate through all the results
+			for grex in results['matches']:
+				if self._dbconn is not None:
+					dataset = self.cacheGrex(results['matches'][grex]['url'])
+					if dataset is not None and 'not' in dataset['synonym_flag']:
+						datasets.append(dataset)
+
+			if len(datasets) == 1:
+				results['matched'] = True
+				results['genus'] = datasets[0]['genus']
+				results['epithet'] = datasets[0]['epithet']
+			else:
+				print("Error parsing results.")
+
+		elif matches == 1:
+			grex = list(results['matches'].keys())[0]
+
+			# Automatically cache results
+			if self._dbconn is not None:
+				dataset = self.cacheGrex(results['matches'][grex]['url'])
+
+				# The RHS search matches on partial parent epithets, so we need to look for an exact match here
+				if dataset is not None and dataset['pod_parent_epithet'] == pod_parent_grex and dataset['pollen_parent_epithet'] == pollen_parent_grex:
+					results['matched'] = True
+					results['genus'] = results['matches'][grex]['genus']
+					results['epithet'] = grex
+
+		if check_reverse:
+			# If we already have a result, we can return early
+			if results['matched']:
+				return results
+
+			# Parentage search using reverse order
+			results = _parentageSearch(reversed_url_params, True)
+			matches = len(results['matches'])
+			if matches > 1:
+				datasets = []
+
+				# Iterate through all the results
+				for grex in results['matches']:
+					if self._dbconn is not None:
+						dataset = self.cacheGrex(results['matches'][grex]['url'])
+						if dataset is not None and 'not' in dataset['synonym_flag']:
+							datasets.append(dataset)
+
+				if len(datasets) == 1:
+					results['matched'] = True
+					results['genus'] = datasets[0]['genus']
+					results['epithet'] = datasets[0]['epithet']
+				else:
+					print("Error parsing results.")
+
+			elif matches == 1:
+				grex = list(results['matches'].keys())[0]
+				# Automatically cache results
+				if self._dbconn is not None:
+					dataset = self.cacheGrex(results['matches'][grex]['url'])
+
+					# The RHS search matches on partial parent epithets, so we need to look for an exact match here
+					if dataset is not None and dataset['pod_parent_epithet'] == pollen_parent_grex and dataset['pollen_parent_epithet'] == pod_parent_grex:
+						results['matched'] = True
+						results['genus'] = results['matches'][grex]['genus']
+						results['epithet'] = grex
+
+		return results
+
+
+def testModuleSearch(database='./RHS.db', verbose=False):
 	"""A simple test to check that all functions are working correctly.
 	Uses a known registered and valid grex."""
 	my_rhs = Register()
-	print(f'Creating database file {database}')
+	print(f'Connecting to database file {database}')
 	my_rhs.dbConnect(database)
 	req = my_rhs.search('Cymbidium','Pearl',True)
+	if verbose:
+		print(req)
 	my_rhs.dbClose()
 	if req is not None:
 		if req['matched']:
+			print("You may now examine the contents of the test database.")
+		else:
+			print("Failed to find a known valid grex in the RHS database.")
+	else:
+		print("Failed to retrieve results; check if RHS database is down.")
+
+
+def testModuleSearchParentage(database='./RHS.db', verbose=False):
+	"""A simple test to check that all functions are working correctly.
+	Uses a known registered and valid grex."""
+	my_rhs = Register()
+	print(f'Connecting to database file {database}')
+	my_rhs.dbConnect(database)
+	print("Test #1: Single result, reversed parentage order")
+	req1 = my_rhs.searchParentage('Cymbidium','insigne','Cymbidium','iansonii',True,True)
+	if verbose:
+		print(req1)
+	print("Test #2: Multiple results, normal parentage order")
+	req2 = my_rhs.searchParentage('Cymbidium','insigne','Cymbidium','lowianum',True,True)
+	if verbose:
+		print(req2)
+	my_rhs.dbClose()
+	if req1 is not None and req2 is not None:
+		if req1['matched'] and req2['matched']:
 			print("You may now examine the contents of the test database.")
 		else:
 			print("Failed to find a known valid grex in the RHS database.")
