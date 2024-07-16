@@ -53,8 +53,9 @@ class GBIF:
 		if len(gbif_account) > 1:
 			username = gbif_account[0]
 			password = gbif_account[1]
-
-		self._auth = HTTPBasicAuth(username, password) # GBIF account
+			self._auth = HTTPBasicAuth(username, password) # GBIF account
+		else:
+			raise AttributeError("Failed to load the GBIF credentials.")
 
 
 
