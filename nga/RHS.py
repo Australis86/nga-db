@@ -287,9 +287,9 @@ class Register:
 		"""Search the register for a registration matching
 		the supplied parentage."""
 
-		def _parentageSearch(url_params, reversed=False):
+		def _parentageSearch(url_params, reversed_parents=False):
 			""" """
-			
+
 			# Parentage search using original order
 			try:
 				req = self._session.get(self._parentage_url, params=url_params)
@@ -298,10 +298,9 @@ class Register:
 
 			# Parse the returned HTML
 			soup = BeautifulSoup(req.text, "lxml")
-			page_nav = soup.find('div', {'class':'pagination'})
 
 			# The first page (there should not be multiple when searching based on parentage!)
-			results = {'matched':False, 'matches':{}, 'parents_reversed':reversed, 'source':'web', 'genus':None, 'epithet':None}
+			results = {'matched':False, 'matches':{}, 'parents_reversed':reversed_parents, 'source':'web', 'genus':None, 'epithet':None}
 			results = self._parseSearchResults(soup, results, expected_genus)
 			return results
 
