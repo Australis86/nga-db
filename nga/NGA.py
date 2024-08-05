@@ -45,6 +45,7 @@ class NGA:
 		"""Create an instance and set up a requests session to the NGA website."""
 
 		self._auth_url = 'https://garden.org/login.php'
+		self._not_allowed_url = 'https://garden.org/not.php'
 		self._home_url = 'https://garden.org/'
 		self._search_url = 'https://garden.org/plants/search/text/'
 		self._genus_url = 'https://garden.org/plants/browse/plants/genus/%s/'
@@ -785,6 +786,10 @@ class NGA:
 		except requests.exceptions.RequestException as err:
 			print(f'Error retrieving NGA database name page for {plant["full_name"]}.')
 			print(str(err))
+			return None
+
+		if req.url == self._not_allowed_url:
+			print('Error: you do not have access to propose changes. Check authentication.')
 			return None
 
 		# Parse the returned HTML

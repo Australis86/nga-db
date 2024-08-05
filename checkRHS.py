@@ -68,8 +68,8 @@ def extractName(rhs_obj, plant):
 
 		else:
 			parents = plant.strip('(').strip(')').split(matches[0])
-			results = checkRegistration(rhs_obj, genus + ' ' + parents[0], genus + ' ' + parents[1])
-			reg = results['matched']
+			reg_results = checkRegistration(rhs_obj, genus + ' ' + parents[0], genus + ' ' + parents[1])
+			reg = reg_results['matched']
 			if reg:
 				plant = reg['epithet']
 				genus = reg['genus']
@@ -101,7 +101,7 @@ if __name__ == '__main__':
 
 	# Check if the source file exists
 	if not os.path.isfile(FNAME):
-		print("%s not found" % FNAME)
+		print(f'{FNAME} not found')
 		sys.exit(1)
 
 	# Read the source CSV
