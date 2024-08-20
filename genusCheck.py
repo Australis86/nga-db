@@ -778,18 +778,18 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 					if not isinstance(lower_pid_dict[k], list):
 						subset = False
 						break
-					else:
-						for element in upper_pid_dict[k]:
-							if element not in lower_pid_dict[k]:
-								subset = False
-								break
+
+					for element in upper_pid_dict[k]:
+						if element not in lower_pid_dict[k]:
+							subset = False
+							break
 				else:
 					subset = (upper_pid_dict[k] in lower_pid_dict[k]) and subset
 			else:
 				subset = False
 				break
 
-		if not subset and verbosity > 1 and not recursed:
+		if not subset and verbosity > 2 and not recursed:
 			print("Lower PID data:")
 			pprint.pprint(lower_pid_dict, width=120, compact=True)
 			print("Upper PID data:")
