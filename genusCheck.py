@@ -763,15 +763,32 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, propose=False, existing=False, verbosity=1):
 	"""Display the pending changes to the NGA database and implement them if allowed."""
 
-	def compareDict(dict_a, dict_b):
+	def compareDict(lower_pid_dict, upper_pid_dict):
 		'''Method to compare two dictionaries.'''
 
-		# Very basic comparison
-		if dict_a != dict_b:
-			print(dict_a)
-			print(dict_b)
+		subset = True
 
-		return (dict_a == dict_b)
+		for k in upper_pid_dict:
+			#print("Comparing key:",k)
+			if k in lower_pid_dict:
+				if type(upper_pid_dict[k]) is dict:
+					subset = compareDict(lower_pid_dict[k], upper_pid_dict[k]) and subset
+				else:
+					subset = (lower_pid_dict[k] == upper_pid_dict[k]) and subset
+					#if lower_pid_dict[k] == upper_pid_dict[k]:
+					#	print(k,"in lower PID dict")
+					#else:
+					#	print(k,"in lower PID dict but differs")
+			else:
+				#print(k,"not in lower PID dict")
+				subset = False
+				break
+
+		if not subset and verbosity > 1:
+			print("Lower PID", lower_pid_dict.items())
+			print("Upper PID", upper_pid_dict.items())
+
+		return subset
 
 
 	# Flag to indicate whether changes are required
@@ -1015,10 +1032,11 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 							if pids_reversed:
 								# Entry with accepted name has higher PID
 								datafields = data_c
+								data_match = compareDict(data_s['databox_contents'], data_c['databox_contents'])
 							else:
 								datafields = data_s
+								data_match = compareDict(data_c['databox_contents'], data_s['databox_contents'])
 
-							data_match = compareDict(data_c['databox_contents'], data_s['databox_contents'])
 							if verbosity > 2:
 								print("General data comparison:", data_match)
 
