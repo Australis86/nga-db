@@ -419,6 +419,10 @@ class NGA:
 						cells = row.find_all('td')
 						rowlabel = cells[0].get_text().strip().replace(":","")
 						rowvalue = cells[1].get_text().strip()
+						
+						# Some of these are checkboxes and each entry is on a separate line, so try splitting them up
+						if '\n' in rowvalue:
+							rowvalue = rowvalue.split('\n')
 						#print('\t\t',rowlabel, '->', [rowvalue])
 
 						# If we can ignore this row, subtract it from the row count

@@ -13,6 +13,7 @@ import os
 import sys
 import argparse
 import sqlite3
+import pprint
 import re
 try:
 	from Levenshtein import ratio
@@ -763,7 +764,7 @@ def compareDatasets(genus, dca_db, nga_dataset, nga_db=None, orchid_extensions=F
 def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, propose=False, existing=False, verbosity=1):
 	"""Display the pending changes to the NGA database and implement them if allowed."""
 
-	def compareDict(lower_pid_dict, upper_pid_dict):
+	def compareDict(lower_pid_dict, upper_pid_dict, recursed=False):
 		'''Method to compare two dictionaries.'''
 
 		subset = True
@@ -771,22 +772,28 @@ def processDatasetChanges(genera, nga_dataset, nga_db=None, common_name=None, pr
 		for k in upper_pid_dict:
 			#print("Comparing key:",k)
 			if k in lower_pid_dict:
-				if type(upper_pid_dict[k]) is dict:
-					subset = compareDict(lower_pid_dict[k], upper_pid_dict[k]) and subset
+				if isinstance(upper_pid_dict[k], dict):
+					subset = compareDict(lower_pid_dict[k], upper_pid_dict[k], True) and subset
+				elif isinstance(upper_pid_dict[k], list):
+					if not isinstance(lower_pid_dict[k], list):
+						subset = False
+						break
+					else:
+						for element in upper_pid_dict[k]:
+							if element not in lower_pid_dict[k]:
+								subset = False
+								break
 				else:
-					subset = (lower_pid_dict[k] == upper_pid_dict[k]) and subset
-					#if lower_pid_dict[k] == upper_pid_dict[k]:
-					#	print(k,"in lower PID dict")
-					#else:
-					#	print(k,"in lower PID dict but differs")
+					subset = (upper_pid_dict[k] in lower_pid_dict[k]) and subset
 			else:
-				#print(k,"not in lower PID dict")
 				subset = False
 				break
 
-		if not subset and verbosity > 1:
-			print("Lower PID", lower_pid_dict.items())
-			print("Upper PID", upper_pid_dict.items())
+		if not subset and verbosity > 1 and not recursed:
+			print("Lower PID data:")
+			pprint.pprint(lower_pid_dict, width=120, compact=True)
+			print("Upper PID data:")
+			pprint.pprint(upper_pid_dict, width=120, compact=True)
 
 		return subset
 
