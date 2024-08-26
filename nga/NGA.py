@@ -1081,6 +1081,10 @@ def _parseTableRow(row, cname_exclude=None):
 
 	# Link to the plant entry on the website
 	anchor = entry.find('a')
+	if anchor is None:
+		# Empty row?
+		return (None, None, None)
+
 	entry_link = anchor['href']
 	anchor_text = anchor.text
 
