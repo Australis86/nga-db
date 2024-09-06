@@ -12,11 +12,9 @@ __licence__ = "GNU Lesser General Public License v3.0"
 
 import os
 import sys
-import re
 import argparse
 import pandas as pd
 import numpy as np
-import nga # Custom module for NGA and other resources
 
 
 def initParser():
@@ -29,6 +27,17 @@ def initParser():
 	return cli_args
 
 
+def checkGenera(dataframe):
+	'''Compute the taxonomic status of each hybrid genus based on the taxonomic status of its component genera.'''
+
+	print(dataframe[['Abbrev.','Genus','Composition','Taxonomical Status']])
+
+	# TODO:
+	# Exclude rows with empty composition, as we cannot sanity-check these
+	# All rows with '×' in the composition field are hybrids to sanity-check
+	# Create a reference dataframe view with just the non-hybrid genera and their taxonomic status
+	# Then iterate through the hybrid genera and lookup the corresponding components (iterrows or map function, perhaps? Need to investigate best way to do this.)
+
 if __name__ == '__main__':
 	args = initParser()
 
@@ -39,5 +48,4 @@ if __name__ == '__main__':
 
 	# Read the source XLSX
 	df = pd.read_excel(args.filename, sheet_name='Genera')
-
-	print(df)
+	checkGenera(df)
