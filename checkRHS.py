@@ -22,9 +22,9 @@ def initParser():
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument("filename", type=str, help="CSV file with (Pod Parent,Pollen Parent) as columns")
-	
-	args = parser.parse_args()
-	return args
+
+	cli_args = parser.parse_args()
+	return cli_args
 
 
 def genusName(abbrev):

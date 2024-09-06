@@ -20,6 +20,8 @@ On the first execution of `genusCheck.py`, it will check for two files - an NGA 
   - requests
   - titlecase
 
+Some of the additional sample scripts require pandas, numpy and openpyxl.
+
 ## Acknowledgements
 
 These scripts rely on a number of online resources. The work by those who maintain the following projects is greatly appreciated:
