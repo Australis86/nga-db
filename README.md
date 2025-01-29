@@ -13,7 +13,7 @@ On the first execution of `genusCheck.py`, it will check for two files - an NGA 
 
 ## Dependencies
 
-- Python 3.6+ with the following modules
+- Python 3.8+ with the following modules
   - Beautiful Soup 4 (bs4)
   - lxml (for BS4 parser)
   - Levenshtein (python-levenshtein)
